@@ -40,21 +40,37 @@ $TOTAL_STEPS = 7
 # ==============================================================================
 Write-Step 1 $TOTAL_STEPS "Checking Python installation ..."
 
-$pythonCmd = Get-Command python -ErrorAction SilentlyContinue
-if (-not $pythonCmd) {
+# Resolve which python executable is available (python or python3)
+$pythonExe = $null
+foreach ($candidate in @("python", "python3")) {
+    $found = Get-Command $candidate -ErrorAction SilentlyContinue
+    if ($found) { $pythonExe = $candidate; break }
+}
+if (-not $pythonExe) {
     Write-ERR "Python not found. Install Python 3.10+ from https://python.org and re-run."
     exit 1
 }
 
-$pyVerRaw = python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
-$pyMajor  = [int]($pyVerRaw.Split('.')[0])
-$pyMinor  = [int]($pyVerRaw.Split('.')[1])
+# Use sys.version_info without f-strings so PowerShell cannot corrupt the braces.
+# Output format: "major.minor"  e.g. "3.14"
+$pyVerRaw = (& $pythonExe -c "import sys; print(str(sys.version_info.major) + '.' + str(sys.version_info.minor))").Trim()
+
+# Guard: if the string is empty or doesn't contain a dot the command failed
+if ([string]::IsNullOrWhiteSpace($pyVerRaw) -or -not $pyVerRaw.Contains('.')) {
+    Write-ERR "Could not determine Python version. Raw output: '$pyVerRaw'"
+    exit 1
+}
+
+$pyMajor = [int]($pyVerRaw.Split('.')[0])
+$pyMinor = [int]($pyVerRaw.Split('.')[1])
 
 if ($pyMajor -lt 3 -or ($pyMajor -eq 3 -and $pyMinor -lt 10)) {
-    Write-ERR "Python $pyVerRaw found but 3.10+ is required."
+    Write-ERR "Python $pyVerRaw found but 3.10+ is required. Please upgrade Python."
     exit 1
 }
 Write-OK "Python $pyVerRaw detected."
+
+# From here on, use $pythonExe instead of hard-coded "python"
 
 # ==============================================================================
 # STEP 2 - Virtual environment
@@ -62,7 +78,7 @@ Write-OK "Python $pyVerRaw detected."
 Write-Step 2 $TOTAL_STEPS "Setting up virtual environment ..."
 
 if (-Not (Test-Path "venv")) {
-    python -m venv venv | Out-Null
+    & $pythonExe -m venv venv | Out-Null
     Write-OK "Virtual environment created."
 } else {
     Write-OK "Virtual environment already exists - skipping creation."
