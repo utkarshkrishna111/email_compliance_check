@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Email Compliance AI – Architecture</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #0b0e17;
+    --surface:  #111624;
+    --border:   #1e2740;
+    --accent1:  #4f8ef7;
+    --accent2:  #7b5af7;
+    --accent3:  #1fd1a0;
+    --warn:     #f7a84f;
+    --danger:   #f75a5a;
+    --text:     #e2e8f8;
+    --muted:    #6b7a9f;
+    --glow1:    rgba(79,142,247,.18);
+    --glow2:    rgba(123,90,247,.18);
+    --glow3:    rgba(31,209,160,.15);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ---------- grid noise overlay ---------- */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 48px 24px 80px; }
+
+  /* ---------- header ---------- */
+  header { text-align: center; margin-bottom: 64px; }
+  .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; letter-spacing: 4px; text-transform: uppercase;
+    color: var(--accent3); margin-bottom: 16px;
+  }
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 800; line-height: 1.1;
+    background: linear-gradient(135deg, var(--accent1) 0%, var(--accent2) 60%, var(--accent3) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 12px;
+  }
+  .subtitle { color: var(--muted); font-size: 13px; letter-spacing: 1px; }
+
+  /* ---------- legend ---------- */
+  .legend {
+    display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;
+    margin-bottom: 48px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+  /* ---------- arch container ---------- */
+  .arch-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto auto auto;
+    gap: 0;
+    position: relative;
+  }
+
+  /* ---------- nodes ---------- */
+  .node {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin: 12px;
+    background: var(--surface);
+    transition: transform .25s, box-shadow .25s;
+    cursor: default;
+  }
+  .node:hover { transform: translateY(-3px); }
+
+  .node-icon {
+    font-size: 22px; margin-bottom: 10px;
+  }
+  .node-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px; font-weight: 700;
+    color: var(--text); margin-bottom: 6px;
+  }
+  .node-desc { font-size: 10px; color: var(--muted); line-height: 1.5; }
+  .node-tag {
+    display: inline-block; margin-top: 10px;
+    padding: 2px 8px; border-radius: 4px;
+    font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+    background: var(--border); color: var(--muted);
+  }
+
+  /* colour variants */
+  .node-data   { border-color: #1e3a5f; box-shadow: 0 0 30px var(--glow1); }
+  .node-data   .node-title { color: var(--accent1); }
+  .node-data   .node-tag   { background: rgba(79,142,247,.12); color: var(--accent1); }
+
+  .node-ai     { border-color: #2d1e5f; box-shadow: 0 0 30px var(--glow2); }
+  .node-ai     .node-title { color: var(--accent2); }
+  .node-ai     .node-tag   { background: rgba(123,90,247,.12); color: var(--accent2); }
+
+  .node-valid  { border-color: #1a3d30; box-shadow: 0 0 30px var(--glow3); }
+  .node-valid  .node-title { color: var(--accent3); }
+  .node-valid  .node-tag   { background: rgba(31,209,160,.1); color: var(--accent3); }
+
+  .node-output { border-color: #3d2e10; box-shadow: 0 0 30px rgba(247,168,79,.12); }
+  .node-output .node-title { color: var(--warn); }
+  .node-output .node-tag   { background: rgba(247,168,79,.1); color: var(--warn); }
+
+  /* ---------- layer bands ---------- */
+  .layer-band {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 12px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    font-family: 'DM Mono', monospace;
+  }
+  .layer-band::before { content: ''; flex: 1; height: 1px; background: currentColor; opacity: .2; }
+  .layer-band::after  { content: ''; flex: 1; height: 1px; background: currentColor; opacity: .2; }
+
+  .lb-data   { color: var(--accent1); }
+  .lb-ai     { color: var(--accent2); }
+  .lb-valid  { color: var(--accent3); }
+  .lb-output { color: var(--warn); }
+
+  /* ---------- flow arrows svg ---------- */
+  .flow-svg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none; overflow: visible;
+    z-index: 2;
+  }
+
+  /* ---------- step indicators ---------- */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px;
+    margin-top: 64px;
+  }
+  .step {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    background: var(--surface);
+    transition: border-color .2s;
+  }
+  .step:hover { border-color: var(--accent1); }
+  .step-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px; font-weight: 800;
+    background: linear-gradient(135deg, var(--accent1), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    line-height: 1;
+  }
+  .step-name { font-size: 11px; color: var(--text); margin-top: 6px; font-weight: 500; }
+  .step-detail { font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+
+  /* ---------- footer ---------- */
+  footer {
+    text-align: center; margin-top: 64px;
+    font-size: 10px; color: var(--muted); letter-spacing: 2px;
+  }
+
+  /* ---------- animations ---------- */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .node, .step, .layer-band {
+    animation: fadeUp .5s ease both;
+  }
+  .node:nth-child(1)  { animation-delay: .05s; }
+  .node:nth-child(2)  { animation-delay: .10s; }
+  .node:nth-child(3)  { animation-delay: .15s; }
+  .node:nth-child(4)  { animation-delay: .20s; }
+  .node:nth-child(5)  { animation-delay: .25s; }
+  .node:nth-child(6)  { animation-delay: .30s; }
+  .node:nth-child(7)  { animation-delay: .35s; }
+  .node:nth-child(8)  { animation-delay: .40s; }
+
+  .step:nth-child(1) { animation-delay: .50s; }
+  .step:nth-child(2) { animation-delay: .55s; }
+  .step:nth-child(3) { animation-delay: .60s; }
+  .step:nth-child(4) { animation-delay: .65s; }
+  .step:nth-child(5) { animation-delay: .70s; }
+  .step:nth-child(6) { animation-delay: .75s; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="eyebrow">TCS Internal · AI-Powered Compliance</div>
+    <h1>Email Compliance<br/>AI Agent Architecture</h1>
+    <p class="subtitle">Communication Surveillance · Non-Compliance Detection · Priority Scoring</p>
+  </header>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#4f8ef7"></div>Data Layer</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#7b5af7"></div>AI Agent Layer</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#1fd1a0"></div>Validation Layer</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f7a84f"></div>Scoring &amp; Output Layer</div>
+  </div>
+
+  <!-- Architecture grid -->
+  <div class="arch-container" id="arch">
+
+    <!-- ── Layer 1: Data ── -->
+    <div class="layer-band lb-data">Data Layer</div>
+
+    <div class="node node-data" id="n-source">
+      <div class="node-icon">📧</div>
+      <div class="node-title">Email Source</div>
+      <div class="node-desc">Raw emails from internal mailboxes, SMTP feeds, or uploaded PDF / Excel files.</div>
+      <span class="node-tag">Input</span>
+    </div>
+    <div class="node node-data" id="n-ingest">
+      <div class="node-icon">⚙️</div>
+      <div class="node-title">Ingestion</div>
+      <div class="node-desc">email_reader.py parses PDF &amp; Excel documents, extracts headers and body text.</div>
+      <span class="node-tag">PyMuPDF · pandas</span>
+    </div>
+    <div class="node node-data" id="n-queue">
+      <div class="node-icon">🗂️</div>
+      <div class="node-title">Queue / Batch</div>
+      <div class="node-desc">Emails are batched into a processing list ready for the AI Agent layer.</div>
+      <span class="node-tag">Kafka-ready</span>
+    </div>
+
+    <!-- ── Layer 2: AI Agent ── -->
+    <div class="layer-band lb-ai">AI Agent Layer</div>
+
+    <div class="node node-ai" style="grid-column: 1 / 4;" id="n-agent">
+      <div class="node-icon">🤖</div>
+      <div class="node-title">AI Compliance Agent — LangChain + Azure OpenAI GPT-4o</div>
+      <div class="node-desc">
+        Reads each email, detects sender intent, identifies non-compliant categories
+        (market manipulation, bribery, secrecy, employee ethics, change in communication, complaints),
+        extracts evidence lines, and produces a structured JSON finding with confidence score.
+      </div>
+      <span class="node-tag">compliance_agent.py · LangChain · AzureChatOpenAI</span>
+    </div>
+
+    <!-- ── Layer 3: Validation ── -->
+    <div class="layer-band lb-valid">Validation Layer</div>
+
+    <div class="node node-valid" id="n-guard" style="grid-column: 1 / 3;">
+      <div class="node-icon">🛡️</div>
+      <div class="node-title">Guardrails Validator</div>
+      <div class="node-desc">
+        Validates AI output: checks required fields, confidence range, valid category IDs,
+        evidence presence, reasoning length, and soft hallucination guard.
+      </div>
+      <span class="node-tag">guardrails.py · GuardrailValidator</span>
+    </div>
+    <div class="node node-valid" id="n-verify">
+      <div class="node-icon">🔍</div>
+      <div class="node-title">Verification Pass</div>
+      <div class="node-desc">
+        Second LLM call challenges the initial finding, corrects categories / confidence if needed,
+        and reduces hallucinations.
+      </div>
+      <span class="node-tag">guardrails.py · ComplianceVerifier</span>
+    </div>
+
+    <!-- ── Layer 4: Scoring & Output ── -->
+    <div class="layer-band lb-output">Scoring &amp; Output Layer</div>
+
+    <div class="node node-output" id="n-score">
+      <div class="node-icon">📊</div>
+      <div class="node-title">Scoring Engine</div>
+      <div class="node-desc">
+        Applies category base weights, multipliers (multi-category, high-confidence),
+        normalises to 0–100 priority score and assigns band (CRITICAL / HIGH / MEDIUM / LOW).
+      </div>
+      <span class="node-tag">scoring_engine.py · compliance_matrix.yaml</span>
+    </div>
+    <div class="node node-output" id="n-db">
+      <div class="node-icon">🗄️</div>
+      <div class="node-title">Database / Storage</div>
+      <div class="node-desc">
+        Scored findings persisted to JSON (output/compliance_results.json) for dashboard consumption and audit trail.
+      </div>
+      <span class="node-tag">storage.py</span>
+    </div>
+    <div class="node node-output" id="n-dash">
+      <div class="node-icon">🖥️</div>
+      <div class="node-title">Dashboard</div>
+      <div class="node-desc">
+        HTML dashboard (dashboard.html) uploads files, triggers analysis via REST API, and displays
+        prioritised compliance findings with evidence and scores.
+      </div>
+      <span class="node-tag">Flask API · dashboard.html</span>
+    </div>
+
+  </div><!-- /arch-container -->
+
+  <!-- Processing Steps -->
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-name">Ingest</div>
+      <div class="step-detail">Read emails from PDF or Excel source files</div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-name">Analyse</div>
+      <div class="step-detail">AI Agent detects intent &amp; categories via GPT-4o</div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-name">Validate</div>
+      <div class="step-detail">Guardrails check output quality &amp; completeness</div>
+    </div>
+    <div class="step">
+      <div class="step-num">04</div>
+      <div class="step-name">Verify</div>
+      <div class="step-detail">Second-pass LLM confirms or corrects classification</div>
+    </div>
+    <div class="step">
+      <div class="step-num">05</div>
+      <div class="step-name">Score</div>
+      <div class="step-detail">Priority 0–100 based on configurable matrix</div>
+    </div>
+    <div class="step">
+      <div class="step-num">06</div>
+      <div class="step-name">Store &amp; Alert</div>
+      <div class="step-detail">Persist findings &amp; surface on dashboard</div>
+    </div>
+  </div>
+
+  <footer>EMAIL COMPLIANCE AI AGENT · TCS INTERNAL · POWERED BY AZURE OPENAI</footer>
+
+</div>
+</body>
+</html>

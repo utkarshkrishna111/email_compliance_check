@@ -1,0 +1,145 @@
+# ============================================================
+# compliance_matrix.yaml
+# Compliance Scoring Matrix - Configurable Parameters
+# Modify weights and thresholds without changing application code
+# ============================================================
+
+# ----------------------------------------------------------------
+# CATEGORY DEFINITIONS
+# Each category has a base_weight (0-10) reflecting criticality.
+# Higher weight = more severe non-compliance.
+# ----------------------------------------------------------------
+categories:
+  market_manipulation:
+    label: "Market Manipulation / Misconduct"
+    base_weight: 10
+    description: >
+      Any communication that attempts to artificially influence
+      market prices, volumes, or participant behavior.
+    keywords:
+      - "pump"
+      - "dump"
+      - "coordinate"
+      - "front run"
+      - "insider"
+      - "price fix"
+      - "rig the market"
+
+  bribery:
+    label: "Market Bribery"
+    base_weight: 9
+    description: >
+      Offering, giving, or accepting bribes, kickbacks, or improper
+      payments to influence financial decisions.
+    keywords:
+      - "kickback"
+      - "payment for favor"
+      - "under the table"
+      - "gift in exchange"
+      - "bribe"
+      - "quid pro quo"
+
+  secrecy:
+    label: "Secrecy / Information Leakage"
+    base_weight: 8
+    description: >
+      Sharing confidential, proprietary, or non-public information
+      with unauthorized parties.
+    keywords:
+      - "don't tell anyone"
+      - "between us"
+      - "off the record"
+      - "confidential tip"
+      - "keep this secret"
+      - "MNPI"
+
+  employee_ethics:
+    label: "Employee Ethics Violation"
+    base_weight: 7
+    description: >
+      Conduct that violates the organization's code of ethics,
+      including conflicts of interest and personal misconduct.
+    keywords:
+      - "personal gain"
+      - "conflict of interest"
+      - "side deal"
+      - "unauthorized trade"
+      - "policy violation"
+
+  change_in_communication:
+    label: "Change in Communication Pattern"
+    base_weight: 6
+    description: >
+      Unusual shifts in communication tone, channel, or frequency
+      that may indicate an attempt to evade surveillance.
+    keywords:
+      - "use personal email"
+      - "call me instead"
+      - "don't put in writing"
+      - "delete this"
+      - "off channel"
+      - "WhatsApp"
+      - "signal"
+
+  complaints:
+    label: "Complaints / Grievances"
+    base_weight: 4
+    description: >
+      Emails containing formal or informal complaints, disputes,
+      or grievances from clients or counterparties.
+    keywords:
+      - "complaint"
+      - "dispute"
+      - "unhappy"
+      - "escalate"
+      - "regulatory concern"
+      - "legal action"
+
+# ----------------------------------------------------------------
+# SCORING PARAMETERS
+# ----------------------------------------------------------------
+scoring:
+  # Confidence thresholds for AI analysis (0.0 - 1.0)
+  confidence_thresholds:
+    high:   0.80   # Confidence >= 0.80  → HIGH alert
+    medium: 0.50   # Confidence >= 0.50  → MEDIUM alert
+    low:    0.00   # Confidence < 0.50   → LOW / review
+
+  # Priority score bands (computed score 0-100)
+  priority_bands:
+    critical:   80   # score >= 80  → CRITICAL
+    high:       60   # score >= 60  → HIGH
+    medium:     40   # score >= 40  → MEDIUM
+    low:         0   # score >= 0   → LOW
+
+  # Multipliers applied on top of category base_weight
+  multipliers:
+    multi_category_bonus: 1.20   # Applied when 2+ categories detected
+    high_confidence_bonus: 1.15  # Applied when confidence >= high threshold
+    external_recipient_bonus: 1.10  # Applied when email goes outside org
+
+  # Normalisation ceiling (raw score is normalised to 0-100)
+  max_raw_score: 10
+
+# ----------------------------------------------------------------
+# GUARDRAIL THRESHOLDS
+# ----------------------------------------------------------------
+guardrails:
+  # Minimum number of evidence lines required for a valid finding
+  min_evidence_lines: 1
+  # Maximum tokens to use per email analysis call
+  max_tokens_per_call: 2000
+  # Reject AI output if reasoning field is shorter than this (chars)
+  min_reasoning_length: 30
+
+# ----------------------------------------------------------------
+# OUTPUT SETTINGS
+# ----------------------------------------------------------------
+output:
+  # Where scored results are written
+  results_dir: "output"
+  results_filename: "compliance_results.json"
+  # Alert levels that trigger dashboard highlight
+  highlight_alert_levels:
+    - "CRITICAL"
+    - "HIGH"
