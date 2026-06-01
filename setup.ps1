@@ -1,5 +1,5 @@
 # ==============================================================================
-# setup.ps1  –  Email Compliance AI Agent  |  Windows 11 Setup Script
+# setup.ps1  -  Email Compliance AI Agent  |  Windows 11 Setup Script
 # ==============================================================================
 # What this script does:
 #   1. Validates Python 3.10+
@@ -14,31 +14,31 @@
 
 $Banner = @"
 
-  ╔══════════════════════════════════════════════════════════╗
-  ║        Email Compliance AI Agent  –  Setup               ║
-  ║        Windows 11  |  Azure OpenAI  |  LangChain         ║
-  ╚══════════════════════════════════════════════════════════╝
+  +----------------------------------------------------------+
+  |        Email Compliance AI Agent  -  Setup               |
+  |        Windows 11  |  Azure OpenAI  |  LangChain         |
+  +----------------------------------------------------------+
 
 "@
 Write-Host $Banner -ForegroundColor Cyan
 
-# ── Helper: section header ──────────────────────────────────────────────────
+# -- Helper: section header ----------------------------------------------------
 function Write-Step([int]$n, [int]$total, [string]$msg) {
     Write-Host ""
     Write-Host "  [$n/$total] $msg" -ForegroundColor Yellow
 }
 
-# ── Helper: success/fail indicators ─────────────────────────────────────────
-function Write-OK([string]$msg)   { Write-Host "        ✔  $msg" -ForegroundColor Green  }
-function Write-ERR([string]$msg)  { Write-Host "        ✘  $msg" -ForegroundColor Red    }
-function Write-NOTE([string]$msg) { Write-Host "        ℹ  $msg" -ForegroundColor Magenta }
+# -- Helper: status indicators -------------------------------------------------
+function Write-OK([string]$msg)   { Write-Host "        [OK]  $msg" -ForegroundColor Green   }
+function Write-ERR([string]$msg)  { Write-Host "        [ERR] $msg" -ForegroundColor Red     }
+function Write-NOTE([string]$msg) { Write-Host "        [i]   $msg" -ForegroundColor Magenta }
 
 $TOTAL_STEPS = 7
 
 # ==============================================================================
-# STEP 1 – Python check
+# STEP 1 - Python check
 # ==============================================================================
-Write-Step 1 $TOTAL_STEPS "Checking Python installation …"
+Write-Step 1 $TOTAL_STEPS "Checking Python installation ..."
 
 $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
 if (-not $pythonCmd) {
@@ -57,25 +57,31 @@ if ($pyMajor -lt 3 -or ($pyMajor -eq 3 -and $pyMinor -lt 10)) {
 Write-OK "Python $pyVerRaw detected."
 
 # ==============================================================================
-# STEP 2 – Virtual environment
+# STEP 2 - Virtual environment
 # ==============================================================================
-Write-Step 2 $TOTAL_STEPS "Setting up virtual environment …"
+Write-Step 2 $TOTAL_STEPS "Setting up virtual environment ..."
 
 if (-Not (Test-Path "venv")) {
     python -m venv venv | Out-Null
     Write-OK "Virtual environment created."
 } else {
-    Write-OK "Virtual environment already exists – skipping creation."
+    Write-OK "Virtual environment already exists - skipping creation."
 }
 
-# Activate
-& ".\venv\Scripts\Activate.ps1"
-Write-OK "Virtual environment activated."
+# Activate virtual environment
+$activateScript = Join-Path $PSScriptRoot "venv\Scripts\Activate.ps1"
+if (Test-Path $activateScript) {
+    & $activateScript
+    Write-OK "Virtual environment activated."
+} else {
+    Write-ERR "Could not find venv activation script at: $activateScript"
+    exit 1
+}
 
 # ==============================================================================
-# STEP 3 – Install Python dependencies
+# STEP 3 - Install Python dependencies
 # ==============================================================================
-Write-Step 3 $TOTAL_STEPS "Installing Python dependencies …"
+Write-Step 3 $TOTAL_STEPS "Installing Python dependencies ..."
 
 pip install --upgrade pip --quiet
 
@@ -108,9 +114,9 @@ foreach ($pkg in $packages) {
 Write-OK "All $($packages.Count) packages installed successfully."
 
 # ==============================================================================
-# STEP 4 – Azure OpenAI credentials (interactive)
+# STEP 4 - Azure OpenAI credentials (interactive)
 # ==============================================================================
-Write-Step 4 $TOTAL_STEPS "Configuring Azure OpenAI connection …"
+Write-Step 4 $TOTAL_STEPS "Configuring Azure OpenAI connection ..."
 Write-Host ""
 Write-Host "        Enter your Azure OpenAI credentials." -ForegroundColor White
 Write-Host "        (Press ENTER to keep the placeholder and edit .env later)" -ForegroundColor DarkGray
@@ -136,18 +142,19 @@ if ([string]::IsNullOrWhiteSpace($inputDeployment)) { $inputDeployment = $defaul
 Write-OK "Azure OpenAI credentials captured."
 
 # ==============================================================================
-# STEP 5 – Log mode selection (interactive)
+# STEP 5 - Log mode selection (interactive)
 # ==============================================================================
-Write-Step 5 $TOTAL_STEPS "Selecting default log mode …"
+Write-Step 5 $TOTAL_STEPS "Selecting default log mode ..."
 Write-Host ""
 Write-Host "        Choose the default logging level for main.py:" -ForegroundColor White
 Write-Host ""
-Write-Host "          [1]  INFO   – Human-readable summary (recommended for production)" -ForegroundColor Green
-Write-Host "          [2]  DEBUG  – Full trace including raw AI responses (recommended for dev/testing)" -ForegroundColor Cyan
+Write-Host "          [1]  INFO   - Human-readable summary (recommended for production)" -ForegroundColor Green
+Write-Host "          [2]  DEBUG  - Full trace including raw AI responses (for dev/testing)" -ForegroundColor Cyan
 Write-Host ""
 
 $logChoice = ""
-while ($logChoice -notin @("1","2")) {
+$LOG_LEVEL = "INFO"
+while ($logChoice -notin @("1", "2")) {
     $logChoice = Read-Host "        Enter choice [1 or 2]"
     if ($logChoice -eq "1") {
         $LOG_LEVEL = "INFO"
@@ -157,89 +164,100 @@ while ($logChoice -notin @("1","2")) {
         Write-OK "Log mode set to DEBUG."
     } else {
         Write-Host "        Please enter 1 or 2." -ForegroundColor Red
+        $logChoice = ""
     }
 }
 
 # ==============================================================================
-# STEP 6 – Write .env file
+# STEP 6 - Write .env file
 # ==============================================================================
-Write-Step 6 $TOTAL_STEPS "Writing .env configuration file …"
+Write-Step 6 $TOTAL_STEPS "Writing .env configuration file ..."
 
+# Build .env content using a here-string
+# Note: variables inside @"..."@ are expanded by PowerShell
 $envContent = @"
-# ── Azure OpenAI ──────────────────────────────────────────────────────────────
+# Azure OpenAI
 AZURE_OPENAI_ENDPOINT=$inputEndpoint
 AZURE_OPENAI_API_KEY=$inputApiKey
 AZURE_OPENAI_API_VERSION=$inputApiVersion
 AZURE_OPENAI_DEPLOYMENT=$inputDeployment
 
-# ── Application defaults ──────────────────────────────────────────────────────
+# Application defaults
 # Log level used by main.py when --log-level is not passed on the CLI
 # Valid values: DEBUG | INFO | WARNING | ERROR | CRITICAL
 LOG_LEVEL=$LOG_LEVEL
 
-# ── Folder paths (relative to project root; override if needed) ───────────────
+# Folder paths (relative to project root; override if needed)
 EMAIL_DATA_DIR=email_data
 RESULT_DIR=result
 LOG_DIR=logs
 "@
 
-$envContent | Out-File -FilePath ".env" -Encoding utf8
-Write-OK ".env written."
+$envPath = Join-Path $PSScriptRoot ".env"
+$envContent | Out-File -FilePath $envPath -Encoding utf8
+Write-OK ".env written to: $envPath"
 Write-NOTE "Edit .env at any time to update credentials or change LOG_LEVEL."
 
 # ==============================================================================
-# STEP 7 – Create application folders
+# STEP 7 - Create application folders
 # ==============================================================================
-Write-Step 7 $TOTAL_STEPS "Creating application folder structure …"
+Write-Step 7 $TOTAL_STEPS "Creating application folder structure ..."
 
 $folders = @("email_data", "result", "logs", "config", "src", "ui")
 foreach ($folder in $folders) {
-    if (-Not (Test-Path $folder)) {
-        New-Item -ItemType Directory -Path $folder | Out-Null
-        Write-OK "Created: $folder\"
+    $folderPath = Join-Path $PSScriptRoot $folder
+    if (-Not (Test-Path $folderPath)) {
+        New-Item -ItemType Directory -Path $folderPath | Out-Null
+        Write-OK "Created : $folder"
     } else {
-        Write-OK "Exists : $folder\"
+        Write-OK "Exists  : $folder"
     }
 }
 
-# Place a README stub in email_data so users know where to drop files
-$emailDataReadme = @"
-# email_data
-Drop your test email files here (PDF or Excel .xlsx).
-Files uploaded through the HTML dashboard are also saved here.
+# Place a README in email_data so users know where to drop files
+$readmePath = Join-Path $PSScriptRoot "email_data\README.txt"
+if (-Not (Test-Path $readmePath)) {
+    $readmeContent = @"
+email_data folder
+=================
+Drop your test email files here (.pdf or .xlsx).
+Files uploaded via the HTML dashboard are also saved here automatically.
 
 Supported formats:
-  - .pdf   – one or more emails per document
-  - .xlsx  – one email per row (columns: From, To, Subject, Date, Body)
+  .pdf   - one or more emails per document
+  .xlsx  - one email per row (columns: From, To, Subject, Date, Body)
+
+Run from CLI:
+  python main.py --data-dir email_data
+  python main.py --data-dir email_data --log-level DEBUG
 "@
-if (-Not (Test-Path "email_data\README.txt")) {
-    $emailDataReadme | Out-File -FilePath "email_data\README.txt" -Encoding utf8
+    $readmeContent | Out-File -FilePath $readmePath -Encoding utf8
 }
 
 # ==============================================================================
 # Summary
 # ==============================================================================
 Write-Host ""
-Write-Host "  ╔══════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "  ║  Setup complete!                                         ║" -ForegroundColor Cyan
-Write-Host "  ╠══════════════════════════════════════════════════════════╣" -ForegroundColor Cyan
-Write-Host "  ║  Run modes:                                              ║" -ForegroundColor White
-Write-Host "  ║                                                          ║" -ForegroundColor White
-Write-Host "  ║  API server (for dashboard):                             ║" -ForegroundColor White
-Write-Host "  ║    python main.py --server                               ║" -ForegroundColor Green
-Write-Host "  ║                                                          ║" -ForegroundColor White
-Write-Host "  ║  CLI – analyse email_data folder (default log level):    ║" -ForegroundColor White
-Write-Host "  ║    python main.py --data-dir email_data                  ║" -ForegroundColor Green
-Write-Host "  ║                                                          ║" -ForegroundColor White
-Write-Host "  ║  CLI – analyse specific file with DEBUG log:             ║" -ForegroundColor White
-Write-Host "  ║    python main.py --file email_data\test_emails.xlsx ``   ║" -ForegroundColor Green
-Write-Host "  ║                   --log-level DEBUG                      ║" -ForegroundColor Green
-Write-Host "  ║                                                          ║" -ForegroundColor White
-Write-Host "  ║  Open ui\dashboard.html in browser for GUI               ║" -ForegroundColor White
-Write-Host "  ╚══════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "  +----------------------------------------------------------+" -ForegroundColor Cyan
+Write-Host "  |  Setup complete!                                         |" -ForegroundColor Cyan
+Write-Host "  +----------------------------------------------------------+" -ForegroundColor Cyan
+Write-Host "  |  Run modes:                                              |" -ForegroundColor White
+Write-Host "  |                                                          |" -ForegroundColor White
+Write-Host "  |  Start API server (for HTML dashboard):                  |" -ForegroundColor White
+Write-Host "  |    python main.py --server                               |" -ForegroundColor Green
+Write-Host "  |                                                          |" -ForegroundColor White
+Write-Host "  |  Analyse all files in email_data folder:                 |" -ForegroundColor White
+Write-Host "  |    python main.py --data-dir email_data                  |" -ForegroundColor Green
+Write-Host "  |                                                          |" -ForegroundColor White
+Write-Host "  |  Analyse a single file with DEBUG logging:               |" -ForegroundColor White
+Write-Host "  |    python main.py --file email_data/test_emails.xlsx     |" -ForegroundColor Green
+Write-Host "  |                   --log-level DEBUG                      |" -ForegroundColor Green
+Write-Host "  |                                                          |" -ForegroundColor White
+Write-Host "  |  Open ui/dashboard.html in your browser for the GUI      |" -ForegroundColor White
+Write-Host "  +----------------------------------------------------------+" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Log level default : $LOG_LEVEL" -ForegroundColor Magenta
-Write-Host "  Logs saved to     : logs\" -ForegroundColor Magenta
-Write-Host "  Results saved to  : result\" -ForegroundColor Magenta
-Write-Host "  Email data folder : email_data\" -ForegroundColor Magenta
+Write-Host "  Logs saved to     : logs/" -ForegroundColor Magenta
+Write-Host "  Results saved to  : result/" -ForegroundColor Magenta
+Write-Host "  Email data folder : email_data/" -ForegroundColor Magenta
 Write-Host ""
