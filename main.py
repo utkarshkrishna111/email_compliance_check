@@ -125,24 +125,31 @@ def _ensure(pip_name, import_name=None):
         )
         print("  [auto-install] " + pip_name + " installed.")
 
-# Full package list - all required by the application
-# pip_name           import_name (if different from pip_name)
+# ---------------------------------------------------------------------------
+# Required packages: pip name and Python import name.
+#
+# Key constraints verified for Python 3.10-3.14 on Windows:
+#   openai >=2.26.0       required by langchain-openai 1.x
+#   tiktoken >=0.7.0      required by langchain-openai 1.x
+#   langchain-community   removed - not used by this app
+#   PyMuPDF import name   fitz  (not pymupdf)
+# ---------------------------------------------------------------------------
 _REQUIRED_PACKAGES = [
-    ("python-dotenv",   "dotenv"),
-    ("pyyaml",          "yaml"),
-    ("PyMuPDF",         "fitz"),
-    ("pandas",          "pandas"),
-    ("openpyxl",        "openpyxl"),
-    ("langchain",       "langchain"),
-    ("langchain-openai","langchain_openai"),
-    ("langchain-community", "langchain_community"),
-    ("langchain-core",  "langchain_core"),
-    ("openai",          "openai"),
-    ("flask",           "flask"),
-    ("flask-cors",      "flask_cors"),
-    ("tiktoken",        "tiktoken"),
-    ("colorlog",        "colorlog"),
-    ("reportlab",       "reportlab"),
+    # (pip_install_name,        python_import_name)
+    ("python-dotenv",           "dotenv"),
+    ("pyyaml",                  "yaml"),
+    ("PyMuPDF",                 "fitz"),
+    ("pandas",                  "pandas"),
+    ("openpyxl",                "openpyxl"),
+    ("openai>=2.26.0",          "openai"),
+    ("langchain",               "langchain"),
+    ("langchain-openai",        "langchain_openai"),
+    ("langchain-core",          "langchain_core"),
+    ("flask",                   "flask"),
+    ("flask-cors",              "flask_cors"),
+    ("tiktoken>=0.7.0",         "tiktoken"),
+    ("colorlog",                "colorlog"),
+    ("reportlab",               "reportlab"),
 ]
 
 _any_installed = False
@@ -151,9 +158,10 @@ for _pip_name, _import_name in _REQUIRED_PACKAGES:
         __import__(_import_name)
     except ModuleNotFoundError:
         if not _any_installed:
-            print("  [auto-install] Installing missing packages into active venv ...")
+            print("  [auto-install] Installing missing packages ...")
             _any_installed = True
-        print("  [auto-install] Installing " + _pip_name + " ...")
+        _display = _pip_name.split(">")[0].split("=")[0].split("<")[0]
+        print("  [auto-install] Installing " + _display + " ...")
         subprocess.check_call(
             [sys.executable, "-m", "pip", "install", _pip_name,
              "--quiet", "--prefer-binary"],
@@ -375,10 +383,10 @@ def _run_pipeline(file_paths, result_dir):
 
 def run_server():
     logger = logging.getLogger("main.server")
-    from src.api_server import app
-    logger.info("Starting Email Compliance API server on http://localhost:5050")
-    logger.info("Open ui/dashboard.html in your browser for the GUI.")
-    app.run(host="0.0.0.0", port=5050, debug=False)
+    logger.info("Starting Email Compliance server ...")
+    from src.api_server import start
+    # start() serves the dashboard at http://localhost:5050 and opens the browser
+    start(port=5050, open_browser=True)
 
 
 # =============================================================================
