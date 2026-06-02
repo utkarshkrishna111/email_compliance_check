@@ -92,7 +92,7 @@ def extract_emails_from_pdf(file_path: str) -> List[Dict[str, Any]]:
     try:
         import fitz  # PyMuPDF
     except ImportError:
-        raise ImportError("PyMuPDF is required: pip install PyMuPDF")
+        raise ImportError("pymupdf is required: pip install pymupdf")
 
     doc = fitz.open(file_path)
     full_text = "\n".join(page.get_text() for page in doc)
