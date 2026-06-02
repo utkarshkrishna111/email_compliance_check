@@ -7,249 +7,259 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
   :root{--bg:#080c14;--surface:#0e1525;--card:#111a2e;--border:#1c2845;
-    --accent1:#4a90f7;--accent2:#7c5cf5;--green:#23d5a0;--warn:#f5ab45;
+    --a1:#4a90f7;--a2:#7c5cf5;--green:#23d5a0;--warn:#f5ab45;
     --danger:#f55a5a;--text:#dce6f8;--muted:#5a6a90;--dim:#9aaccc}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh}
-  body::before{content:'';position:fixed;inset:0;z-index:0;
-    background-image:linear-gradient(rgba(255,255,255,.013) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(255,255,255,.013) 1px,transparent 1px);
-    background-size:48px 48px;pointer-events:none}
+  body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:linear-gradient(rgba(255,255,255,.013) 1px,transparent 1px) 0 0/48px 48px,
+               linear-gradient(90deg,rgba(255,255,255,.013) 1px,transparent 1px) 0 0/48px 48px}
   .shell{position:relative;z-index:1;display:flex;min-height:100vh}
 
-  /* sidebar */
-  .sidebar{width:230px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);padding:28px 0;display:flex;flex-direction:column}
+  /* ── sidebar ── */
+  .sb{width:230px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);
+    padding:28px 0;display:flex;flex-direction:column}
   .logo{padding:0 20px 28px;border-bottom:1px solid var(--border)}
   .logo-icon{font-size:24px;margin-bottom:6px}
-  .logo-text{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;
-    background:linear-gradient(135deg,var(--accent1),var(--accent2));
-    -webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.3}
+  .logo-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;line-height:1.3;
+    background:linear-gradient(135deg,var(--a1),var(--a2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
   .logo-sub{font-size:9px;color:var(--muted);letter-spacing:2px;margin-top:4px}
-  .nav{padding:20px 0;flex:1}
-  .nav-link{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:11px;
-    color:var(--muted);cursor:pointer;transition:all .15s;border-left:2px solid transparent;text-decoration:none}
-  .nav-link:hover,.nav-link.active{color:var(--text);border-left-color:var(--accent1);background:rgba(74,144,247,.06)}
-  .nav-link.active{color:var(--accent1)}
-  .nav-link .icon{font-size:14px;width:18px;text-align:center}
-  .sidebar-footer{padding:16px 20px;border-top:1px solid var(--border);font-size:9px;color:var(--muted);line-height:1.9}
+  nav{padding:20px 0;flex:1}
+  .nl{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:11px;color:var(--muted);
+    cursor:pointer;transition:all .15s;border-left:2px solid transparent;text-decoration:none}
+  .nl:hover,.nl.on{color:var(--text);border-left-color:var(--a1);background:rgba(74,144,247,.06)}
+  .nl.on{color:var(--a1)}
+  .ni{font-size:14px;width:18px;text-align:center}
+  .sb-foot{padding:16px 20px;border-top:1px solid var(--border);font-size:9px;color:var(--muted);line-height:2}
   .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
-  .dot-green{background:var(--green)}.dot-red{background:var(--danger)}.dot-grey{background:var(--muted)}
+  .dg{background:var(--green)}.dr{background:var(--danger)}.dy{background:var(--warn)}
 
-  /* server-down banner */
-  .server-banner{display:none;background:rgba(245,90,90,.08);border:1px solid rgba(245,90,90,.3);
-    border-radius:10px;padding:20px 22px;margin-bottom:24px}
-  .server-banner.show{display:block}
-  .sb-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--danger);margin-bottom:10px}
-  .sb-step{font-size:11px;color:var(--dim);line-height:2;padding:10px 14px;
-    background:var(--card);border-radius:7px;border:1px solid var(--border);margin-top:8px}
-  .sb-step code{color:var(--accent1);font-family:'DM Mono',monospace}
-  .sb-retry{margin-top:12px;padding:8px 20px;background:transparent;border:1px solid var(--danger);
-    color:var(--danger);border-radius:7px;cursor:pointer;font-size:11px;font-family:'DM Mono',monospace}
-  .sb-retry:hover{background:rgba(245,90,90,.1)}
-
-  /* main */
+  /* ── main ── */
   .main{flex:1;padding:36px 40px;overflow-y:auto}
-  .page-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--text);margin-bottom:6px}
-  .page-sub{font-size:11px;color:var(--muted);margin-bottom:28px}
+  h1{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--text);margin-bottom:6px}
+  .sub{font-size:11px;color:var(--muted);margin-bottom:24px}
 
-  /* stats */
-  .stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px;margin-bottom:28px}
-  .stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;position:relative;overflow:hidden}
-  .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--grad)}
-  .stat-card[data-c=blue]{--grad:linear-gradient(90deg,var(--accent1),var(--accent2))}
-  .stat-card[data-c=red]{--grad:linear-gradient(90deg,var(--danger),#c43030)}
-  .stat-card[data-c=warn]{--grad:linear-gradient(90deg,var(--warn),#d98a20)}
-  .stat-card[data-c=green]{--grad:linear-gradient(90deg,var(--green),#17a378)}
-  .stat-value{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--text)}
-  .stat-label{font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:1px;text-transform:uppercase}
+  /* ── connection banner ── */
+  .cbanner{border-radius:10px;padding:20px 22px;margin-bottom:24px;display:none}
+  .cbanner.show{display:block}
+  .cbanner.offline{background:rgba(245,90,90,.07);border:1px solid rgba(245,90,90,.3)}
+  .cbanner.online{background:rgba(35,213,160,.07);border:1px solid rgba(35,213,160,.3);padding:12px 18px}
+  .cb-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:10px}
+  .cbanner.offline .cb-title{color:var(--danger)}
+  .cbanner.online  .cb-title{color:var(--green)}
+  .cb-body{font-size:11px;color:var(--dim);line-height:1.7}
+  .cb-steps{background:var(--card);border:1px solid var(--border);border-radius:7px;
+    padding:14px 16px;margin-top:12px;font-size:11px;line-height:2.2;color:var(--dim)}
+  .cb-steps code{color:var(--a1);font-family:'DM Mono',monospace}
+  .cb-steps .warn-line{color:var(--warn);font-size:10px}
+  .cb-retry{margin-top:12px;padding:7px 18px;background:transparent;
+    border:1px solid var(--danger);color:var(--danger);border-radius:7px;
+    cursor:pointer;font-size:11px;font-family:'DM Mono',monospace}
+  .cb-retry:hover{background:rgba(245,90,90,.1)}
 
-  /* section */
-  .section{margin-bottom:28px}
-  .section-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--dim);
-    margin-bottom:14px;text-transform:uppercase;letter-spacing:2px;display:flex;align-items:center;gap:10px}
-  .section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+  /* ── debug box ── */
+  .dbg{background:var(--card);border:1px solid var(--border);border-radius:8px;
+    padding:12px 14px;margin-top:10px;font-size:10px;color:var(--muted);
+    font-family:'DM Mono',monospace;line-height:1.8;display:none}
+  .dbg.show{display:block}
+  .dbg-title{color:var(--warn);font-size:10px;margin-bottom:6px}
 
-  /* upload */
-  .drop-zone{border:2px dashed var(--border);border-radius:14px;padding:36px 24px;text-align:center;
+  /* ── stats ── */
+  .stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:14px;margin-bottom:24px}
+  .sc{background:var(--card);border:1px solid var(--border);border-radius:10px;
+    padding:18px;position:relative;overflow:hidden}
+  .sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--g)}
+  .sc[data-c=b]{--g:linear-gradient(90deg,var(--a1),var(--a2))}
+  .sc[data-c=r]{--g:linear-gradient(90deg,var(--danger),#c43030)}
+  .sc[data-c=w]{--g:linear-gradient(90deg,var(--warn),#d98a20)}
+  .sc[data-c=g]{--g:linear-gradient(90deg,var(--green),#17a378)}
+  .sv{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:var(--text)}
+  .sl{font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:1px;text-transform:uppercase}
+
+  /* ── section ── */
+  .sec{margin-bottom:26px}
+  .sec-title{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--dim);
+    margin-bottom:14px;text-transform:uppercase;letter-spacing:2px;
+    display:flex;align-items:center;gap:10px}
+  .sec-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+  /* ── upload ── */
+  .dz{border:2px dashed var(--border);border-radius:14px;padding:34px 24px;text-align:center;
     cursor:pointer;transition:all .2s;background:var(--card)}
-  .drop-zone:hover,.drop-zone.dragover{border-color:var(--accent1);background:rgba(74,144,247,.05)}
-  .drop-icon{font-size:36px;margin-bottom:12px}
-  .drop-text{font-size:13px;color:var(--dim);margin-bottom:6px}
-  .drop-hint{font-size:10px;color:var(--muted)}
-  #fileInput{display:none}
-  .file-list{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
-  .file-chip{display:flex;align-items:center;gap:8px;background:var(--surface);
-    border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:11px;color:var(--dim)}
-  .chip-rm{cursor:pointer;color:var(--muted);font-size:13px;transition:color .15s}
-  .chip-rm:hover{color:var(--danger)}
-  .row-btns{display:flex;gap:12px;margin-top:18px;flex-wrap:wrap;align-items:center}
-  .btn{padding:11px 28px;border:none;border-radius:8px;font-family:'Syne',sans-serif;
-    font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all .2s}
-  .btn-primary{background:linear-gradient(135deg,var(--accent1),var(--accent2));color:#fff}
-  .btn-primary:hover{opacity:.9;transform:translateY(-1px)}
-  .btn-primary:disabled{opacity:.35;cursor:not-allowed;transform:none}
-  .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--dim)}
-  .btn-ghost:hover{border-color:var(--accent1);color:var(--accent1)}
-  .info-box{background:rgba(74,144,247,.06);border:1px solid rgba(74,144,247,.2);
-    border-radius:8px;padding:12px 16px;font-size:10px;color:var(--dim);margin-top:12px;line-height:1.8}
-  .info-box strong{color:var(--accent1)}
-  .prog-wrap{height:3px;background:var(--border);border-radius:2px;margin-top:14px;overflow:hidden;display:none}
-  .prog-wrap.active{display:block}
-  .prog-bar{height:100%;background:linear-gradient(90deg,var(--accent1),var(--accent2));width:0%;transition:width .4s}
+  .dz:hover,.dz.ov{border-color:var(--a1);background:rgba(74,144,247,.05)}
+  .dz-icon{font-size:34px;margin-bottom:10px}
+  .dz-text{font-size:13px;color:var(--dim);margin-bottom:5px}
+  .dz-hint{font-size:10px;color:var(--muted)}
+  #fi{display:none}
+  .fl{margin-top:12px;display:flex;flex-wrap:wrap;gap:7px}
+  .fc{display:flex;align-items:center;gap:7px;background:var(--surface);
+    border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:11px;color:var(--dim)}
+  .fc .x{cursor:pointer;color:var(--muted);font-size:12px}
+  .fc .x:hover{color:var(--danger)}
+  .btns{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;align-items:center}
+  .btn-p{padding:10px 26px;background:linear-gradient(135deg,var(--a1),var(--a2));color:#fff;
+    border:none;border-radius:8px;font-family:'Syne',sans-serif;font-size:12px;
+    font-weight:700;letter-spacing:1px;cursor:pointer;transition:all .2s}
+  .btn-p:hover{opacity:.9;transform:translateY(-1px)}
+  .btn-p:disabled{opacity:.35;cursor:not-allowed;transform:none}
+  .btn-g{padding:10px 22px;background:transparent;border:1px solid var(--border);
+    color:var(--dim);border-radius:8px;font-family:'Syne',sans-serif;
+    font-size:12px;font-weight:700;cursor:pointer;transition:all .2s}
+  .btn-g:hover{border-color:var(--a1);color:var(--a1)}
+  .info{background:rgba(74,144,247,.06);border:1px solid rgba(74,144,247,.2);
+    border-radius:8px;padding:11px 14px;font-size:10px;color:var(--dim);margin-top:10px;line-height:1.8}
+  .info strong{color:var(--a1)}
+  .pw{height:3px;background:var(--border);border-radius:2px;margin-top:12px;overflow:hidden;display:none}
+  .pw.on{display:block}
+  .pb{height:100%;background:linear-gradient(90deg,var(--a1),var(--a2));width:0%;transition:width .4s}
 
-  /* run selector */
-  .run-row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
-  .run-row select{background:var(--card);border:1px solid var(--border);color:var(--dim);
-    border-radius:6px;padding:7px 12px;font-family:'DM Mono',monospace;font-size:11px;flex:1}
-  .run-row select:focus{outline:none;border-color:var(--accent1)}
+  /* ── run selector ── */
+  .rr{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .rr select{background:var(--card);border:1px solid var(--border);color:var(--dim);
+    border-radius:6px;padding:6px 10px;font-family:'DM Mono',monospace;font-size:11px;flex:1}
+  .rr select:focus{outline:none;border-color:var(--a1)}
+  .rr button{padding:5px 10px;background:transparent;border:1px solid var(--border);
+    color:var(--dim);border-radius:6px;cursor:pointer;font-size:11px}
+  .rr button:hover{border-color:var(--a1);color:var(--a1)}
 
-  /* table */
-  .tbl-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border)}
+  /* ── table ── */
+  .tw{overflow-x:auto;border-radius:12px;border:1px solid var(--border)}
   table{width:100%;border-collapse:collapse;font-size:11px}
-  thead th{background:var(--surface);padding:12px 14px;text-align:left;color:var(--muted);
-    font-size:9px;letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap}
+  thead th{background:var(--surface);padding:11px 13px;text-align:left;color:var(--muted);
+    font-size:9px;letter-spacing:2px;text-transform:uppercase;
+    border-bottom:1px solid var(--border);white-space:nowrap}
   tbody tr{border-bottom:1px solid var(--border);transition:background .15s}
   tbody tr:last-child{border-bottom:none}
   tbody tr:hover{background:rgba(74,144,247,.04)}
-  td{padding:12px 14px;vertical-align:top;color:var(--dim)}
-  .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:9px;
+  td{padding:11px 13px;vertical-align:top;color:var(--dim)}
+  .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:9px;
     font-weight:700;letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
-  .b-critical{background:rgba(245,90,90,.15);color:var(--danger)}
-  .b-high{background:rgba(245,90,90,.08);color:#f58a5a}
-  .b-medium{background:rgba(245,171,69,.1);color:var(--warn)}
-  .b-low,.b-compliant,.b-none{background:var(--border);color:var(--muted)}
-  .score-bg{background:var(--border);border-radius:3px;height:6px;margin-top:4px;overflow:hidden}
-  .score-fill{height:100%;border-radius:3px;transition:width .8s ease}
-  .cat-tag{display:inline-block;margin:2px 2px 2px 0;padding:1px 6px;border-radius:3px;
-    font-size:8px;background:rgba(124,92,245,.12);color:var(--accent2);white-space:nowrap}
-  .exp-btn{background:none;border:none;color:var(--accent1);cursor:pointer;font-size:10px;padding:0;text-decoration:underline}
-  .det-row{display:none}
-  .det-row.open{display:table-row}
-  .det-cell{padding:0 14px 14px;background:rgba(74,144,247,.03)}
-  .det-inner{border:1px solid var(--border);border-radius:8px;padding:14px;
-    display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:10px}
-  .det-label{color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;font-size:9px}
-  .det-content{color:var(--dim);line-height:1.6}
-  .ev-line{padding:4px 8px;margin:3px 0;background:var(--surface);border-radius:4px;
-    border-left:2px solid var(--accent2);font-style:italic}
-  .empty{text-align:center;padding:56px 20px;color:var(--muted);font-size:12px}
-  .empty .emoji{font-size:38px;margin-bottom:10px}
+  .bc{background:rgba(245,90,90,.15);color:var(--danger)}
+  .bh{background:rgba(245,90,90,.08);color:#f58a5a}
+  .bm{background:rgba(245,171,69,.1);color:var(--warn)}
+  .bl,.bn,.bco{background:var(--border);color:var(--muted)}
+  .sbg{background:var(--border);border-radius:3px;height:5px;margin-top:3px;overflow:hidden}
+  .sfill{height:100%;border-radius:3px;transition:width .8s ease}
+  .ct{display:inline-block;margin:2px 2px 2px 0;padding:1px 5px;border-radius:3px;
+    font-size:8px;background:rgba(124,92,245,.12);color:var(--a2);white-space:nowrap}
+  .xb{background:none;border:none;color:var(--a1);cursor:pointer;font-size:10px;
+    padding:0;text-decoration:underline}
+  .dr{display:none}.dr.on{display:table-row}
+  .dc{padding:0 13px 13px;background:rgba(74,144,247,.02)}
+  .di{border:1px solid var(--border);border-radius:8px;padding:13px;
+    display:grid;grid-template-columns:1fr 1fr;gap:13px;font-size:10px}
+  .dl{color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;font-size:9px}
+  .dv{color:var(--dim);line-height:1.6}
+  .ev{padding:3px 7px;margin:2px 0;background:var(--surface);border-radius:4px;
+    border-left:2px solid var(--a2);font-style:italic}
+  .empty{text-align:center;padding:52px 20px;color:var(--muted);font-size:12px}
+  .empty .e{font-size:36px;margin-bottom:10px}
 
-  /* toast */
-  #toast{position:fixed;bottom:24px;right:24px;z-index:999;padding:12px 20px;border-radius:8px;
-    font-size:12px;color:#fff;background:#1a2540;border:1px solid var(--border);
-    transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none;max-width:380px}
+  /* ── toast ── */
+  #toast{position:fixed;bottom:22px;right:22px;z-index:999;padding:11px 18px;
+    border-radius:8px;font-size:12px;color:#fff;background:#1a2540;
+    border:1px solid var(--border);transform:translateY(80px);opacity:0;
+    transition:all .3s;pointer-events:none;max-width:400px}
   #toast.show{transform:translateY(0);opacity:1}
-  #toast.terror{background:rgba(245,90,90,.2);border-color:var(--danger);color:var(--danger)}
-  #toast.tsuccess{background:rgba(35,213,160,.12);border-color:var(--green);color:var(--green)}
-
-  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-  .res-row{animation:fadeIn .4s ease both}
+  #toast.te{background:rgba(245,90,90,.2);border-color:var(--danger);color:var(--danger)}
+  #toast.ts{background:rgba(35,213,160,.12);border-color:var(--green);color:var(--green)}
+  @keyframes fi{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+  .rr-{animation:fi .35s ease both}
 </style>
 </head>
 <body>
 <div class="shell">
 
-  <!-- Sidebar -->
-  <aside class="sidebar">
+  <aside class="sb">
     <div class="logo">
       <div class="logo-icon">🛡️</div>
-      <div class="logo-text">Compliance<br/>Agent</div>
+      <div class="logo-name">Compliance<br/>Agent</div>
       <div class="logo-sub">EMAIL SURVEILLANCE</div>
     </div>
-    <nav class="nav">
-      <a class="nav-link active" id="nav-upload" onclick="setNav('upload',this)">
-        <span class="icon">📤</span> Upload &amp; Analyse
+    <nav>
+      <a class="nl on" onclick="this.closest('nav').querySelectorAll('.nl').forEach(x=>x.classList.remove('on'));this.classList.add('on')">
+        <span class="ni">📤</span> Upload &amp; Analyse
       </a>
-      <a class="nav-link" id="nav-results" onclick="setNav('results',this)">
-        <span class="icon">📋</span> Results
-      </a>
-      <a class="nav-link" href="architecture.html" target="_blank">
-        <span class="icon">🏗️</span> Architecture
+      <a class="nl" href="/architecture" target="_blank">
+        <span class="ni">🏗️</span> Architecture
       </a>
     </nav>
-    <div class="sidebar-footer">
-      API&nbsp;<span id="apiStatus"><span class="dot dot-grey"></span>checking...</span><br/>
-      <span style="color:var(--accent1)">localhost:5050</span><br/>
-      Data: <code>email_data/</code><br/>
-      Results: <code>result/</code><br/>
-      Logs: <code>logs/</code>
+    <div class="sb-foot">
+      API&nbsp;<span id="apiStatus"><span class="dot dy"></span>checking…</span><br/>
+      <span id="apiUrl" style="color:var(--a1)">localhost:5050</span><br/>
+      Data:&nbsp;<code>email_data/</code><br/>
+      Results:&nbsp;<code>result/</code>
     </div>
   </aside>
 
-  <!-- Main -->
   <main class="main">
-    <div class="page-title">Email Compliance Dashboard</div>
-    <div class="page-sub">Upload email files (PDF or Excel) to detect non-compliant communications and assign priority scores</div>
+    <h1>Email Compliance Dashboard</h1>
+    <p class="sub">Upload PDF or Excel email files to detect non-compliant communications and assign priority scores</p>
 
-    <!-- Server-down banner (shown when API unreachable) -->
-    <div class="server-banner" id="serverBanner">
-      <div class="sb-title">⚠ API Server Not Running</div>
-      <p style="font-size:11px;color:var(--dim);margin-bottom:4px">
-        The dashboard cannot connect to the Flask API at <strong>localhost:5050</strong>.<br/>
-        You must start the server before using the dashboard.
-      </p>
-      <div class="sb-step">
-        <strong style="color:var(--text)">Step 1</strong> &mdash; Open a PowerShell terminal in your project folder<br/>
-        <strong style="color:var(--text)">Step 2</strong> &mdash; Activate your virtual environment:<br/>
-        &nbsp;&nbsp;<code>.\.venv\Scripts\Activate.ps1</code><br/>
-        <strong style="color:var(--text)">Step 3</strong> &mdash; Start the server:<br/>
-        &nbsp;&nbsp;<code>python main.py --server</code><br/>
-        <strong style="color:var(--text)">Step 4</strong> &mdash; Open the dashboard in your browser at:<br/>
-        &nbsp;&nbsp;<code><a href="http://localhost:5050" target="_blank" style="color:var(--accent1)">http://localhost:5050</a></code><br/>
-        <span style="font-size:10px;color:var(--warn)">&#9888; Do NOT open dashboard.html from File Explorer &mdash; use the URL above.</span>
+    <!-- connection banner -->
+    <div class="cbanner offline show" id="cbanner">
+      <div class="cb-title" id="cb-title">⚠ Connecting to server…</div>
+      <div class="cb-body" id="cb-body">Checking API at <strong id="cb-url">http://localhost:5050</strong>…</div>
+      <div class="cb-steps" id="cb-steps" style="display:none">
+        <strong style="color:var(--text)">The server is not running. Start it:</strong><br/>
+        1. Open PowerShell in your project folder<br/>
+        2. Activate venv:&nbsp;&nbsp;<code>.\.venv\Scripts\Activate.ps1</code><br/>
+        3. Start server:&nbsp;&nbsp;<code>python main.py --server</code><br/>
+        4. Open browser at:&nbsp;&nbsp;<code><a href="http://localhost:5050" target="_blank" style="color:var(--a1)">http://localhost:5050</a></code><br/>
+        <span class="warn-line">⚠ Always use http://localhost:5050 — do NOT open dashboard.html directly from File Explorer</span>
       </div>
-      <button class="sb-retry" onclick="checkHealth()">↻ Retry Connection</button>
+      <div class="dbg" id="dbg">
+        <div class="dbg-title">Debug info</div>
+        <div id="dbg-content"></div>
+      </div>
+      <button class="cb-retry" id="cb-retry" onclick="checkHealth(true)" style="display:none">↻ Retry Connection</button>
     </div>
 
-    <!-- Stats -->
-    <div class="stats-row">
-      <div class="stat-card" data-c="blue"><div class="stat-value" id="s-total">—</div><div class="stat-label">Emails Analysed</div></div>
-      <div class="stat-card" data-c="red"><div class="stat-value" id="s-nc">—</div><div class="stat-label">Non-Compliant</div></div>
-      <div class="stat-card" data-c="warn"><div class="stat-value" id="s-crit">—</div><div class="stat-label">Critical / High</div></div>
-      <div class="stat-card" data-c="green"><div class="stat-value" id="s-ok">—</div><div class="stat-label">Compliant</div></div>
+    <!-- stats -->
+    <div class="stats">
+      <div class="sc" data-c="b"><div class="sv" id="s0">—</div><div class="sl">Emails Analysed</div></div>
+      <div class="sc" data-c="r"><div class="sv" id="s1">—</div><div class="sl">Non-Compliant</div></div>
+      <div class="sc" data-c="w"><div class="sv" id="s2">—</div><div class="sl">Critical / High</div></div>
+      <div class="sc" data-c="g"><div class="sv" id="s3">—</div><div class="sl">Compliant</div></div>
     </div>
 
-    <!-- Upload -->
-    <div class="section" id="sec-upload">
-      <div class="section-title">Upload Email Files</div>
-      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
-        <div class="drop-icon">📂</div>
-        <div class="drop-text">Drop PDF or Excel files here, or click to browse</div>
-        <div class="drop-hint">Supports .pdf · .xlsx · .xls · Multiple files allowed</div>
-        <input type="file" id="fileInput" accept=".pdf,.xlsx,.xls,.xlsm" multiple/>
+    <!-- upload -->
+    <div class="sec">
+      <div class="sec-title">Upload Email Files</div>
+      <div class="dz" id="dz" onclick="document.getElementById('fi').click()">
+        <div class="dz-icon">📂</div>
+        <div class="dz-text">Drop PDF or Excel files here, or click to browse</div>
+        <div class="dz-hint">Supports .pdf · .xlsx · .xls · Multiple files allowed</div>
+        <input type="file" id="fi" accept=".pdf,.xlsx,.xls,.xlsm" multiple/>
       </div>
-      <div class="file-list" id="fileList"></div>
-      <div class="info-box">
+      <div class="fl" id="fl"></div>
+      <div class="info">
         Uploaded files are saved to <strong>email_data/</strong> on the server.<br/>
         Results are written to <strong>result/compliance_&lt;timestamp&gt;.json</strong> after each run.
       </div>
-      <div class="row-btns">
-        <button class="btn btn-primary" id="analyseBtn" disabled onclick="runAnalysis()">▶ Run Compliance Analysis</button>
-        <button class="btn btn-ghost" onclick="clearFiles()">✕ Clear</button>
+      <div class="btns">
+        <button class="btn-p" id="ab" disabled onclick="runAnalysis()">▶ Run Compliance Analysis</button>
+        <button class="btn-g" onclick="clearFiles()">✕ Clear</button>
       </div>
-      <div class="prog-wrap" id="progWrap"><div class="prog-bar" id="progBar"></div></div>
+      <div class="pw" id="pw"><div class="pb" id="pb"></div></div>
     </div>
 
-    <!-- Results -->
-    <div class="section" id="sec-results">
-      <div class="section-title">Findings</div>
-      <div class="run-row">
-        <span style="font-size:10px;color:var(--muted);white-space:nowrap">Run:</span>
-        <select id="runSelect" onchange="loadRun(this.value)">
-          <option value="">— select a past run —</option>
+    <!-- results -->
+    <div class="sec">
+      <div class="sec-title">Findings</div>
+      <div class="rr">
+        <span style="font-size:10px;color:var(--muted);white-space:nowrap">Past run:</span>
+        <select id="rs" onchange="loadRun(this.value)">
+          <option value="">— select —</option>
         </select>
-        <button class="btn-ghost" style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);
-          color:var(--dim);cursor:pointer;font-size:10px;background:transparent" onclick="refreshRuns()">↻</button>
+        <button onclick="refreshRuns()">↻</button>
       </div>
-      <div class="tbl-wrap">
+      <div class="tw">
         <table>
-          <thead><tr>
-            <th>#</th><th>Subject</th><th>From</th><th>Categories</th>
-            <th>Confidence</th><th>Score</th><th>Band</th><th>Alert</th><th></th>
-          </tr></thead>
-          <tbody id="tbody">
-            <tr><td colspan="9"><div class="empty"><div class="emoji">📭</div>Upload files and run analysis to see results</div></td></tr>
+          <thead><tr><th>#</th><th>Subject</th><th>From</th><th>Categories</th>
+            <th>Conf.</th><th>Score</th><th>Band</th><th>Alert</th><th></th></tr></thead>
+          <tbody id="tb">
+            <tr><td colspan="9"><div class="empty"><div class="e">📭</div>Run analysis to see results here</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -259,240 +269,273 @@
 <div id="toast"></div>
 
 <script>
-// API base URL - works whether served from Flask (http://localhost:5050)
-// or any other host. Uses relative URL so no CORS issues ever occur.
-const API = window.location.origin === 'null' || window.location.protocol === 'file:'
-  ? 'http://localhost:5050'   // fallback if somehow opened from disk
-  : '';                        // same-origin when served through Flask
-let selectedFiles = [];
-let serverOnline  = false;
+// Determine the API base URL.
+// When served by Flask at http://localhost:5050 -> same origin, use ''
+// When opened from file:// (shouldn't happen but handle gracefully) -> use absolute URL
+const IS_FILE = location.protocol === 'file:';
+const API     = IS_FILE ? 'http://localhost:5050' : '';
+const API_ABS = IS_FILE ? 'http://localhost:5050' : location.origin;
 
-// ── Health check ───────────────────────────────────────────────────────────
-async function checkHealth() {
-  const el = document.getElementById('apiStatus');
-  const banner = document.getElementById('serverBanner');
+document.getElementById('apiUrl').textContent  = IS_FILE ? 'localhost:5050' : location.host;
+document.getElementById('cb-url').textContent  = API_ABS;
+
+let online = false;
+let files  = [];
+
+// ── Health check ────────────────────────────────────────────────────────────
+async function checkHealth(manual) {
+  const banner  = document.getElementById('cbanner');
+  const title   = document.getElementById('cb-title');
+  const body    = document.getElementById('cb-body');
+  const steps   = document.getElementById('cb-steps');
+  const retry   = document.getElementById('cb-retry');
+  const dbg     = document.getElementById('dbg');
+  const dbgc    = document.getElementById('dbg-content');
+  const status  = document.getElementById('apiStatus');
+
+  // Show "checking" state
+  title.textContent = '↻ Checking connection…';
+  body.innerHTML    = 'Reaching <strong>' + API_ABS + '/api/health</strong>…';
+  steps.style.display = 'none';
+  retry.style.display = 'none';
+
+  let errorDetail = '';
   try {
     const ctrl = new AbortController();
-    setTimeout(() => ctrl.abort(), 4000);
-    const r = await fetch(API + '/api/health', { signal: ctrl.signal });
-    const d = await r.json();
-    if (d.status === 'ok') {
-      el.innerHTML = '<span class="dot dot-green"></span>online';
-      banner.classList.remove('show');
-      serverOnline = true;
-      updateAnalyseBtn();
-      return;
+    const tid  = setTimeout(() => ctrl.abort(), 5000);
+    const r    = await fetch(API + '/api/health', {
+      signal: ctrl.signal,
+      cache:  'no-store',
+    });
+    clearTimeout(tid);
+
+    if (r.ok) {
+      const d = await r.json();
+      if (d.status === 'ok') {
+        // SUCCESS
+        online = true;
+        status.innerHTML = '<span class="dot dg"></span>online';
+        banner.className = 'cbanner online show';
+        title.textContent = '✓ Server is online';
+        body.innerHTML = 'Connected to <strong>' + API_ABS + '</strong>';
+        steps.style.display = 'none';
+        retry.style.display = 'none';
+        dbg.classList.remove('show');
+        updateBtn();
+        // Auto-hide after 4 s
+        setTimeout(() => banner.classList.remove('show'), 4000);
+        return;
+      }
+      errorDetail = 'Server responded but status was: ' + d.status;
+    } else {
+      errorDetail = 'HTTP ' + r.status + ' ' + r.statusText;
     }
-  } catch(e) { /* fall through */ }
-  el.innerHTML = '<span class="dot dot-red"></span>offline';
-  banner.classList.add('show');
-  serverOnline = false;
-  updateAnalyseBtn();
-}
-
-function updateAnalyseBtn() {
-  document.getElementById('analyseBtn').disabled =
-    selectedFiles.length === 0 || !serverOnline;
-}
-
-checkHealth();
-setInterval(checkHealth, 10000);
-
-// ── Nav ────────────────────────────────────────────────────────────────────
-function setNav(name, el) {
-  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-  if (el) el.classList.add('active');
-}
-
-// ── File handling ──────────────────────────────────────────────────────────
-const dropZone  = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
-const ALLOWED   = ['.pdf','.xlsx','.xls','.xlsm'];
-
-dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop',      e  => { e.preventDefault(); dropZone.classList.remove('dragover'); addFiles(Array.from(e.dataTransfer.files)); });
-fileInput.addEventListener('change',   ()  => addFiles(Array.from(fileInput.files)));
-
-function addFiles(files) {
-  files.forEach(f => {
-    const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
-    if (!ALLOWED.includes(ext)) { toast('Unsupported: ' + f.name, 'terror'); return; }
-    if (!selectedFiles.find(x => x.name === f.name)) selectedFiles.push(f);
-  });
-  renderFileList();
-}
-function removeFile(name) { selectedFiles = selectedFiles.filter(f => f.name !== name); renderFileList(); }
-function clearFiles()     { selectedFiles = []; fileInput.value = ''; renderFileList(); }
-function renderFileList() {
-  document.getElementById('fileList').innerHTML = selectedFiles.map(f =>
-    '<div class="file-chip">' + (f.name.endsWith('.pdf') ? '📄' : '📊') + ' ' + esc(f.name) +
-    ' <span class="chip-rm" onclick="removeFile(\'' + esc(f.name) + '\')">✕</span></div>'
-  ).join('');
-  updateAnalyseBtn();
-}
-
-// ── Analysis ───────────────────────────────────────────────────────────────
-async function runAnalysis() {
-  if (!selectedFiles.length) return;
-  if (!serverOnline) {
-    toast('Server is offline. Start it with: python main.py --server', 'terror');
-    return;
+  } catch(e) {
+    errorDetail = e.name === 'AbortError'
+      ? 'Request timed out after 5 seconds'
+      : e.message || String(e);
   }
 
-  const btn = document.getElementById('analyseBtn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Analysing...';
+  // FAILURE
+  online = false;
+  status.innerHTML  = '<span class="dot dr"></span>offline';
+  banner.className  = 'cbanner offline show';
+  title.textContent = '⚠ API Server Not Running';
+  body.innerHTML    = 'Cannot reach <strong>' + API_ABS + '/api/health</strong>';
+  steps.style.display = 'block';
+  retry.style.display = 'inline-block';
 
-  const pw = document.getElementById('progWrap');
-  const pb = document.getElementById('progBar');
-  pw.classList.add('active');
-  pb.style.width = '0%';
-  await anim(pb, '25%', 300);
+  // Show debug info
+  dbgc.innerHTML =
+    'Error: ' + errorDetail + '<br/>' +
+    'Protocol: ' + location.protocol + '<br/>' +
+    'Host: ' + (location.host || '(file)') + '<br/>' +
+    'API URL: ' + API_ABS + '<br/>' +
+    'Timestamp: ' + new Date().toISOString();
+  dbg.classList.add('show');
+  updateBtn();
+}
+
+function updateBtn() {
+  document.getElementById('ab').disabled = files.length === 0 || !online;
+}
+
+// Initial check + periodic
+checkHealth(false);
+setInterval(() => checkHealth(false), 12000);
+
+// ── File handling ────────────────────────────────────────────────────────────
+const dz = document.getElementById('dz');
+const fi = document.getElementById('fi');
+const EXT = ['.pdf','.xlsx','.xls','.xlsm'];
+
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('ov'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('ov'));
+dz.addEventListener('drop',      e => { e.preventDefault(); dz.classList.remove('ov'); addFiles([...e.dataTransfer.files]); });
+fi.addEventListener('change',    () => addFiles([...fi.files]));
+
+function addFiles(newFiles) {
+  newFiles.forEach(f => {
+    const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
+    if (!EXT.includes(ext)) { toast('Unsupported: ' + f.name, 'te'); return; }
+    if (!files.find(x => x.name === f.name)) files.push(f);
+  });
+  renderFiles();
+}
+function removeFile(name) { files = files.filter(f => f.name !== name); renderFiles(); }
+function clearFiles()     { files = []; fi.value = ''; renderFiles(); }
+function renderFiles() {
+  document.getElementById('fl').innerHTML = files.map(f =>
+    '<div class="fc">' + (f.name.endsWith('.pdf') ? '📄' : '📊') + ' ' + esc(f.name) +
+    ' <span class="x" onclick="removeFile(\'' + esc(f.name) + '\')">✕</span></div>'
+  ).join('');
+  updateBtn();
+}
+
+// ── Analysis ─────────────────────────────────────────────────────────────────
+async function runAnalysis() {
+  if (!files.length || !online) return;
+
+  const btn = document.getElementById('ab');
+  btn.disabled = true;
+  btn.textContent = '⏳ Analysing…';
+
+  const pw = document.getElementById('pw');
+  const pb = document.getElementById('pb');
+  pw.classList.add('on'); pb.style.width = '0%';
+  await anim(pb,'25%',300);
 
   const fd = new FormData();
-  selectedFiles.forEach(f => fd.append('files', f));
+  files.forEach(f => fd.append('files', f));
 
   try {
-    await anim(pb, '55%', 500);
-    const res  = await fetch(API + '/api/analyse', { method: 'POST', body: fd });
-    await anim(pb, '85%', 300);
+    await anim(pb,'55%',600);
+    const res  = await fetch(API + '/api/analyse', { method:'POST', body:fd });
+    await anim(pb,'85%',300);
     const data = await res.json();
-    await anim(pb, '100%', 200);
+    await anim(pb,'100%',200);
 
     if (!res.ok) throw new Error(data.error || 'API error ' + res.status);
 
     renderFindings(data.findings);
     updateStats(data.findings);
-    await refreshRuns();
-    toast('Done! ' + data.total_emails + ' email(s) analysed · results saved to result/', 'tsuccess');
+    refreshRuns();
+    toast(data.total_emails + ' email(s) analysed — results saved to result/', 'ts');
 
   } catch(err) {
-    let msg = err.message;
-    if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('fetch')) {
-      msg = 'Cannot reach server at localhost:5050. Is "python main.py --server" running?';
-    }
-    toast(msg, 'terror');
+    toast('Error: ' + err.message, 'te');
   } finally {
-    setTimeout(() => { pw.classList.remove('active'); pb.style.width = '0%'; }, 700);
-    btn.disabled = !serverOnline || selectedFiles.length === 0;
+    setTimeout(() => { pw.classList.remove('on'); pb.style.width='0%'; }, 700);
     btn.textContent = '▶ Run Compliance Analysis';
+    updateBtn();
   }
 }
 
 function anim(el, w, ms) {
-  return new Promise(r => { el.style.transition = 'width ' + ms + 'ms ease'; el.style.width = w; setTimeout(r, ms); });
+  return new Promise(r => { el.style.transition='width '+ms+'ms ease'; el.style.width=w; setTimeout(r,ms); });
 }
 
-// ── Stats ──────────────────────────────────────────────────────────────────
-function updateStats(findings) {
-  const nc   = findings.filter(f => !f.is_compliant).length;
-  const crit = findings.filter(f => ['CRITICAL','HIGH'].includes(f.priority_band)).length;
-  document.getElementById('s-total').textContent = findings.length;
-  document.getElementById('s-nc').textContent    = nc;
-  document.getElementById('s-crit').textContent  = crit;
-  document.getElementById('s-ok').textContent    = findings.length - nc;
+// ── Stats ────────────────────────────────────────────────────────────────────
+function updateStats(f) {
+  const nc = f.filter(x => !x.is_compliant).length;
+  const hi = f.filter(x => ['CRITICAL','HIGH'].includes(x.priority_band)).length;
+  ['s0','s1','s2','s3'].forEach((id,i) =>
+    document.getElementById(id).textContent = [f.length, nc, hi, f.length-nc][i]
+  );
 }
 
-// ── Run history ────────────────────────────────────────────────────────────
+// ── Runs ──────────────────────────────────────────────────────────────────────
 async function refreshRuns() {
   try {
-    const r    = await fetch(API + '/api/results/list');
-    const data = await r.json();
-    const sel  = document.getElementById('runSelect');
-    const prev = sel.value;
-    sel.innerHTML = '<option value="">— select a past run —</option>' +
-      (data.runs || []).map(n => '<option value="' + n + '"' + (n === prev ? ' selected' : '') + '>' + n + '</option>').join('');
-  } catch { /* server offline */ }
+    const r = await fetch(API + '/api/results/list');
+    const d = await r.json();
+    const s = document.getElementById('rs');
+    const v = s.value;
+    s.innerHTML = '<option value="">— select —</option>' +
+      (d.runs||[]).map(n=>'<option value="'+n+'"'+(n===v?' selected':'')+'>'+n+'</option>').join('');
+  } catch {}
 }
 
-async function loadRun(filename) {
-  if (!filename) return;
+async function loadRun(name) {
+  if (!name) return;
   try {
-    const r    = await fetch(API + '/api/results/' + filename);
-    const data = await r.json();
-    if (data.findings) { renderFindings(data.findings); updateStats(data.findings); }
-  } catch(err) { toast('Could not load run: ' + err.message, 'terror'); }
+    const r = await fetch(API + '/api/results/' + name);
+    const d = await r.json();
+    if (d.findings) { renderFindings(d.findings); updateStats(d.findings); }
+  } catch(e) { toast('Load failed: ' + e.message, 'te'); }
 }
 
-// ── Table ──────────────────────────────────────────────────────────────────
-function renderFindings(findings) {
-  const tbody = document.getElementById('tbody');
-  if (!findings || !findings.length) {
-    tbody.innerHTML = '<tr><td colspan="9"><div class="empty"><div class="emoji">✅</div>No findings.</div></td></tr>';
+// ── Table ────────────────────────────────────────────────────────────────────
+function renderFindings(rows) {
+  const tb = document.getElementById('tb');
+  if (!rows||!rows.length) {
+    tb.innerHTML='<tr><td colspan="9"><div class="empty"><div class="e">✅</div>No findings.</div></td></tr>';
     return;
   }
-  tbody.innerHTML = findings.map((f, i) => {
-    const band  = (f.priority_band || 'LOW').toLowerCase();
-    const alert = (f.alert_level  || 'NONE').toLowerCase();
-    const score = f.priority_score || 0;
-    const col   = score >= 80 ? '#f55a5a' : score >= 60 ? '#f58a5a' : score >= 40 ? '#f5ab45' : '#23d5a0';
-    const cats  = (f.categories || []).map(c => '<span class="cat-tag">' + c.replace(/_/g,' ') + '</span>').join('');
-    const conf  = ((f.confidence || 0) * 100).toFixed(0) + '%';
+  tb.innerHTML = rows.map((f,i) => {
+    const b  = (f.priority_band||'LOW').toLowerCase();
+    const al = (f.alert_level||'NONE').toLowerCase();
+    const sc = f.priority_score||0;
+    const co = sc>=80?'#f55a5a':sc>=60?'#f58a5a':sc>=40?'#f5ab45':'#23d5a0';
+    const ca = (f.categories||[]).map(c=>'<span class="ct">'+c.replace(/_/g,' ')+'</span>').join('');
+    const cf = ((f.confidence||0)*100).toFixed(0)+'%';
     return (
-      '<tr class="res-row" style="animation-delay:' + (i * 0.04) + 's">' +
-        '<td style="color:var(--muted)">' + (i+1) + '</td>' +
-        '<td style="max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(f.subject) + '">' + esc(f.subject || '(no subject)') + '</td>' +
-        '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(f.from || '—') + '</td>' +
-        '<td style="max-width:180px">' + (cats || '<span style="color:var(--muted)">None</span>') + '</td>' +
-        '<td>' + conf + '</td>' +
-        '<td><span style="color:' + col + ';font-family:Syne,sans-serif;font-weight:700">' + score + '</span>' +
-          '<div class="score-bg"><div class="score-fill" style="width:' + score + '%;background:' + col + '"></div></div></td>' +
-        '<td><span class="badge b-' + band + '">' + (f.priority_band || 'LOW') + '</span></td>' +
-        '<td><span class="badge b-' + alert + '">' + (f.alert_level || 'NONE') + '</span></td>' +
-        '<td><button class="exp-btn" onclick="toggle(' + i + ')">details</button></td>' +
-      '</tr>' +
-      '<tr class="det-row" id="dr-' + i + '">' +
-        '<td class="det-cell" colspan="9">' +
-          '<div class="det-inner">' +
-            '<div>' +
-              '<div class="det-label">Intent</div><div class="det-content">' + esc(f.intent || '—') + '</div><br/>' +
-              '<div class="det-label">Reasoning</div><div class="det-content">' + esc(f.reasoning || '—') + '</div>' +
-              (f.verification_note ? '<br/><div class="det-label">Verification</div><div class="det-content">' + esc(f.verification_note) + '</div>' : '') +
-            '</div>' +
-            '<div>' +
-              '<div class="det-label">Evidence Lines</div><div class="det-content">' +
-                ((f.evidence || []).length ? f.evidence.map(e => '<div class="ev-line">' + esc(e) + '</div>').join('') : '<span style="color:var(--muted)">None</span>') +
-              '</div><br/>' +
-              '<div class="det-label">Guardrails</div>' +
-              '<div class="det-content" style="color:' + (f.guardrail_passed ? 'var(--green)' : 'var(--warn)') + '">' +
-                (f.guardrail_passed ? '✓ Passed' : '⚠ ' + (f.guardrail_issues || []).join(', ')) +
-              '</div><br/>' +
-              '<div class="det-label">Source File</div><div class="det-content" style="color:var(--muted)">' + esc(f.source || '—') + '</div>' +
-            '</div>' +
-          '</div>' +
-        '</td>' +
+      '<tr class="rr-" style="animation-delay:'+(i*.04)+'s">'+
+        '<td style="color:var(--muted)">'+(i+1)+'</td>'+
+        '<td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(f.subject||'(no subject)')+'</td>'+
+        '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(f.from||'—')+'</td>'+
+        '<td style="max-width:170px">'+(ca||'<span style="color:var(--muted)">None</span>')+'</td>'+
+        '<td>'+cf+'</td>'+
+        '<td><span style="color:'+co+';font-family:Syne,sans-serif;font-weight:700">'+sc+'</span>'+
+          '<div class="sbg"><div class="sfill" style="width:'+sc+'%;background:'+co+'"></div></div></td>'+
+        '<td><span class="badge b'+b.charAt(0)+'">'+( f.priority_band||'LOW')+'</span></td>'+
+        '<td><span class="badge b'+al.charAt(0)+'">'+( f.alert_level||'NONE')+'</span></td>'+
+        '<td><button class="xb" onclick="tog('+i+')">details</button></td>'+
+      '</tr>'+
+      '<tr class="dr" id="dr'+i+'">'+
+        '<td class="dc" colspan="9"><div class="di">'+
+          '<div>'+
+            '<div class="dl">Intent</div><div class="dv">'+esc(f.intent||'—')+'</div><br/>'+
+            '<div class="dl">Reasoning</div><div class="dv">'+esc(f.reasoning||'—')+'</div>'+
+            (f.verification_note?'<br/><div class="dl">Verification</div><div class="dv">'+esc(f.verification_note)+'</div>':'')+
+          '</div>'+
+          '<div>'+
+            '<div class="dl">Evidence</div><div class="dv">'+
+              ((f.evidence||[]).length?f.evidence.map(e=>'<div class="ev">'+esc(e)+'</div>').join(''):'<span style="color:var(--muted)">None</span>')+
+            '</div><br/>'+
+            '<div class="dl">Guardrails</div>'+
+            '<div class="dv" style="color:'+(f.guardrail_passed?'var(--green)':'var(--warn)')+'">'+
+              (f.guardrail_passed?'✓ Passed':'⚠ '+(f.guardrail_issues||[]).join(', '))+
+            '</div>'+
+          '</div>'+
+        '</div></td>'+
       '</tr>'
     );
   }).join('');
 }
 
-function toggle(i) { document.getElementById('dr-' + i).classList.toggle('open'); }
+function tog(i) { document.getElementById('dr'+i).classList.toggle('on'); }
 
 function esc(s) {
-  return String(s || '')
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Toast ──────────────────────────────────────────────────────────────────
+// ── Toast ────────────────────────────────────────────────────────────────────
 function toast(msg, cls) {
   const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'show ' + (cls || '');
+  el.textContent = msg; el.className = 'show '+(cls||'');
   setTimeout(() => el.className = '', 5000);
 }
 
-// ── Init: load latest results if server is up ──────────────────────────────
+// ── Init ─────────────────────────────────────────────────────────────────────
 (async () => {
-  await checkHealth();
-  if (!serverOnline) return;
+  await refreshRuns();
   try {
-    await refreshRuns();
     const r = await fetch(API + '/api/results');
     if (!r.ok) return;
     const d = await r.json();
-    if (d.findings && d.findings.length) { renderFindings(d.findings); updateStats(d.findings); }
-  } catch { /* offline */ }
+    if (d.findings?.length) { renderFindings(d.findings); updateStats(d.findings); }
+  } catch {}
 })();
 </script>
 </body>
