@@ -5,7 +5,7 @@
 
 python-dotenv>=1.0.1
 pyyaml>=6.0.1
-pymupdf>=1.24.5          # standalone wheel, bundles its own DLLs
+pdfplumber>=0.10.0       # pure-Python PDF reader, no DLL/VC++ needed
 pandas>=2.2.2
 openpyxl>=3.1.4
 openai>=2.26.0

@@ -126,53 +126,19 @@ def _ensure(pip_name, import_name=None):
         print("  [auto-install] " + pip_name + " installed.")
 
 # ---------------------------------------------------------------------------
-# Pre-flight: remove the old PyMuPDF (requires VC++ DLLs on Windows) and
-# replace with pymupdf which bundles its own native binaries.
-# Safe to run on every startup - does nothing if already correct.
-# ---------------------------------------------------------------------------
-def _fix_pymupdf():
-    """
-    PyMuPDF (capital letters) is the old package name. On Python 3.12+/Windows
-    it fails with "DLL load failed" because it needs Visual C++ Redistributable.
-    The replacement is pymupdf (lowercase) which ships its own bundled DLLs.
-    This function detects and fixes a broken PyMuPDF install automatically.
-    """
-    try:
-        import fitz
-        # If fitz imported fine, nothing to do
-        return
-    except (ImportError, Exception):
-        pass
-
-    # fitz failed - uninstall old, install new
-    print("  [fix] Replacing PyMuPDF with pymupdf (bundled DLL version) ...")
-    subprocess.call(
-        [sys.executable, "-m", "pip", "uninstall", "PyMuPDF", "-y", "--quiet"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-    subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", "pymupdf",
-         "--quiet", "--prefer-binary", "--force-reinstall"],
-        stdout=subprocess.DEVNULL,
-    )
-    print("  [fix] pymupdf installed successfully.")
-
-_fix_pymupdf()
-
-# ---------------------------------------------------------------------------
 # Required packages: pip name and Python import name.
 #
 # Key constraints verified for Python 3.10-3.14 on Windows:
 #   openai >=2.26.0       required by langchain-openai 1.x
 #   tiktoken >=0.7.0      required by langchain-openai 1.x
 #   langchain-community   removed - not used by this app
-#   PyMuPDF import name   fitz  (not pymupdf)
+#   pdfplumber: pure-Python PDF reader, no DLL/VC++ dependency
 # ---------------------------------------------------------------------------
 _REQUIRED_PACKAGES = [
     # (pip_install_name,        python_import_name)
     ("python-dotenv",           "dotenv"),
     ("pyyaml",                  "yaml"),
-    ("pymupdf",                  "fitz"),    # pymupdf bundles its own DLLs, no VC++ needed
+    ("pdfplumber",               "pdfplumber"),  # pure-Python PDF reader, no DLL/VC++ needed
     ("pandas",                  "pandas"),
     ("openpyxl",                "openpyxl"),
     ("openai>=2.26.0",          "openai"),

@@ -204,7 +204,7 @@ if ($LASTEXITCODE -ne 0) {
 $packages = @(
     "python-dotenv>=1.0.1",
     "pyyaml>=6.0.1",
-    "pymupdf>=1.24.5",
+    "pdfplumber>=0.10.0",
     "pandas>=2.2.2",
     "openpyxl>=3.1.4",
     "openai>=2.26.0",
