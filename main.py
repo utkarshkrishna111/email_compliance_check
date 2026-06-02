@@ -8,7 +8,7 @@ Modes
   Server  (default)        Start the Flask API for the HTML dashboard
   File    (--file PATH)    Analyse a single PDF / Excel file
   Folder  (--data-dir DIR) Scan a folder and analyse every supported file
-         (positional)      Same as --data-dir: python main.py email_data
+         (positional)      Shorthand: python main.py email_data
 
 Usage examples
 --------------
@@ -20,103 +20,128 @@ Usage examples
   python main.py --file email_data/test_emails.xlsx
   python main.py --file email_data/test_emails.pdf --log-level DEBUG
   python main.py --help
-
-Logging
--------
-  Console                    colourised, at requested level
-  logs/<stem>.info.log       always written (INFO+)
-  logs/<stem>.debug.log      only when --log-level DEBUG (full trace)
-  logs/latest.info.log       symlink to most recent info log
-  logs/latest.debug.log      symlink to most recent debug log
 """
 
-# ─────────────────────────────────────────────────────────────────────────────
-# VENV GUARD  – runs before any third-party import so the error message is
-# clear even when the user forgets to activate the virtual environment.
-# ─────────────────────────────────────────────────────────────────────────────
 import sys
 import os
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent
 
-def _check_venv() -> None:
+# =============================================================================
+# VENV GUARD - runs before any third-party import
+# =============================================================================
+
+def _find_venv():
+    """Return path to a venv folder in the project root, or None.
+    Checks common names: .venv, venv, env."""
+    for name in (".venv", "venv", "env"):
+        candidate = PROJECT_ROOT / name
+        if (candidate / "pyvenv.cfg").exists():
+            return candidate
+    return None
+
+
+def _check_venv():
     """
-    Detect common 'venv not activated' situations and print a friendly fix
-    before Python raises a cryptic ModuleNotFoundError.
+    Exit with a clear message when not running inside any virtual environment.
+
+    Detection (any one passing = we are in a venv, return silently):
+      1. sys.prefix != sys.base_prefix   standard venv indicator
+      2. VIRTUAL_ENV env var             set by Activate.ps1 and PyCharm
+      3. CONDA_PREFIX env var            conda environments
+      4. Running python.exe lives inside a venv folder on disk
     """
-    # If we're already inside a venv, everything is fine.
     if sys.prefix != sys.base_prefix:
         return
+    if os.environ.get("VIRTUAL_ENV"):
+        return
+    if os.environ.get("CONDA_PREFIX"):
+        return
 
-    # Check whether a venv exists in the project folder.
-    venv_python_win = PROJECT_ROOT / "venv" / "Scripts" / "python.exe"
-    venv_python_unix = PROJECT_ROOT / "venv" / "bin" / "python"
-    venv_exists = venv_python_win.exists() or venv_python_unix.exists()
+    # Physical path check
+    running = Path(sys.executable).resolve()
+    venv = _find_venv()
+    if venv:
+        try:
+            running.relative_to(venv.resolve())
+            return
+        except ValueError:
+            pass
 
+    # Nothing matched - print helpful fix and exit
+    venv = _find_venv()
     sep = "=" * 62
     print(sep)
     print("  ERROR: Virtual environment is not activated.")
     print(sep)
-    if venv_exists:
+    if venv:
+        n = venv.name
         print()
-        print("  A venv exists in this project. Activate it first:")
+        print("  Found a venv at: " + str(venv))
         print()
-        print("  Windows PowerShell:")
-        print(r"    .\venv\Scripts\Activate.ps1")
+        print("  Activate in PowerShell:  .\\" + n + "\\Scripts\\Activate.ps1")
+        print("  Activate in CMD:         " + n + "\\Scripts\\activate.bat")
         print()
-        print("  Windows CMD:")
-        print(r"    venv\Scripts\activate.bat")
+        print("  Then re-run:  python main.py email_data")
         print()
-        print("  Then re-run:")
-        print("    python main.py --data-dir email_data")
+        print("  Or in PyCharm: Settings -> Python Interpreter -> Add Interpreter")
+        print("    -> Existing -> " + str(venv / "Scripts" / "python.exe"))
     else:
         print()
         print("  No venv found. Run setup first:")
-        print()
-        print("  Windows PowerShell:")
-        print(r"    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass")
-        print(r"    .\setup.ps1")
-    print()
-    print("  Or open PyCharm Settings → Python Interpreter and select")
-    print(r"  the interpreter at:  venv\Scripts\python.exe")
+        print("    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass")
+        print("    .\\setup.ps1")
     print(sep)
     sys.exit(1)
 
+
 _check_venv()
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Standard library imports (safe before venv check)
-# ─────────────────────────────────────────────────────────────────────────────
+# =============================================================================
+# Standard library imports
+# =============================================================================
 import argparse
 import logging
 import logging.handlers
+import subprocess
 from datetime import datetime
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Third-party imports (only reached if venv is active)
-# ─────────────────────────────────────────────────────────────────────────────
-try:
-    from dotenv import load_dotenv
-except ModuleNotFoundError:
-    print("ERROR: python-dotenv is not installed.")
-    print("Run:  pip install python-dotenv   (inside your activated venv)")
-    sys.exit(1)
+# =============================================================================
+# Auto-install missing packages into the active venv
+# =============================================================================
 
+def _ensure(pip_name, import_name=None):
+    """Import a package; pip-install it quietly if not present."""
+    mod = import_name or pip_name
+    try:
+        __import__(mod)
+    except ModuleNotFoundError:
+        print("  [auto-install] " + pip_name + " not found - installing ...")
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", pip_name,
+             "--quiet", "--prefer-binary"],
+            stdout=subprocess.DEVNULL,
+        )
+        print("  [auto-install] " + pip_name + " installed.")
+
+_ensure("python-dotenv", "dotenv")
+_ensure("pyyaml",         "yaml")
+
+from dotenv import load_dotenv
 load_dotenv()
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# Defaults read from .env (written by setup.ps1)
 _DEFAULT_EMAIL_DATA_DIR = PROJECT_ROOT / os.environ.get("EMAIL_DATA_DIR", "email_data")
 _DEFAULT_RESULT_DIR     = PROJECT_ROOT / os.environ.get("RESULT_DIR",     "result")
 _DEFAULT_LOG_DIR        = PROJECT_ROOT / os.environ.get("LOG_DIR",        "logs")
 _DEFAULT_LOG_LEVEL      = os.environ.get("LOG_LEVEL", "INFO").upper()
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # Logging
-# ═══════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 _LOG_FORMAT_CONSOLE = "%(asctime)s [%(levelname)-8s] %(name)s - %(message)s"
 _LOG_FORMAT_FILE    = (
@@ -149,14 +174,14 @@ class _ColourFormatter(logging.Formatter):
         or os.environ.get("WT_SESSION") is not None
     )
 
-    def format(self, record: logging.LogRecord) -> str:
+    def format(self, record):
         msg = super().format(record)
         if self._ENABLED:
-            msg = f"{self._COLOURS.get(record.levelno, '')}{msg}{self._RESET}"
+            msg = self._COLOURS.get(record.levelno, "") + msg + self._RESET
         return msg
 
 
-def _symlink(target: Path, link: Path) -> None:
+def _symlink(target, link):
     try:
         if link.exists() or link.is_symlink():
             link.unlink()
@@ -165,20 +190,16 @@ def _symlink(target: Path, link: Path) -> None:
         pass
 
 
-def configure_logging(
-    log_level: str = "INFO",
-    log_dir:   str | None = None,
-    log_file:  str | None = None,
-) -> tuple[Path, Path | None]:
+def configure_logging(log_level="INFO", log_dir=None, log_file=None):
     level        = _LEVEL_MAP.get(log_level.upper(), logging.INFO)
     log_dir_path = Path(log_dir) if log_dir else _DEFAULT_LOG_DIR
     log_dir_path.mkdir(parents=True, exist_ok=True)
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    stem  = Path(log_file).stem if log_file else f"compliance_{stamp}"
+    stem  = Path(log_file).stem if log_file else "compliance_" + stamp
 
-    info_log  = log_dir_path / f"{stem}.info.log"
-    debug_log = log_dir_path / f"{stem}.debug.log" if level == logging.DEBUG else None
+    info_log  = log_dir_path / (stem + ".info.log")
+    debug_log = log_dir_path / (stem + ".debug.log") if level == logging.DEBUG else None
 
     root = logging.getLogger()
     root.setLevel(logging.DEBUG)
@@ -214,11 +235,11 @@ def configure_logging(
     return info_log, debug_log
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # Pipeline
-# ═══════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
-def _run_pipeline(file_paths: list, result_dir: Path) -> None:
+def _run_pipeline(file_paths, result_dir):
     logger = logging.getLogger("main.pipeline")
 
     from src.compliance_agent import ComplianceAgent
@@ -232,7 +253,6 @@ def _run_pipeline(file_paths: list, result_dir: Path) -> None:
     logger.info("  Email Compliance AI Agent  -  Pipeline Start")
     logger.info("=" * 60)
 
-    logger.debug("Loading compliance matrix ...")
     config = load_config()
     logger.info("Config loaded: %d categories", len(config.get("categories", {})))
 
@@ -260,7 +280,7 @@ def _run_pipeline(file_paths: list, result_dir: Path) -> None:
     scorer          = ScoringEngine(config)
     scored_findings = []
 
-    for idx, (finding, email) in enumerate(zip(findings, all_emails)):
+    for finding, email in zip(findings, all_emails):
         is_valid, issues = validator.validate(finding, email)
         finding["guardrail_passed"] = is_valid
         finding["guardrail_issues"] = issues
@@ -291,33 +311,33 @@ def _run_pipeline(file_paths: list, result_dir: Path) -> None:
     )
 
     sep = "=" * 68
-    print(f"\n{sep}")
+    print("\n" + sep)
     print("  EMAIL COMPLIANCE AI AGENT  -  ANALYSIS SUMMARY")
     print(sep)
-    print(f"  Total emails analysed : {len(scored_findings)}")
-    print(f"  Non-compliant         : {len(non_compliant)}")
-    print(f"  Compliant             : {compliant}")
-    print(f"  Results saved to      : {result_path}")
+    print("  Total emails analysed : " + str(len(scored_findings)))
+    print("  Non-compliant         : " + str(len(non_compliant)))
+    print("  Compliant             : " + str(compliant))
+    print("  Results saved to      : " + str(result_path))
     print("-" * 68)
     for f in scored_findings:
         flag  = "!  NON-COMPLIANT" if not f.get("is_compliant", True) else "OK COMPLIANT   "
-        band  = f"{f.get('priority_band', '?'):10s}"
+        band  = (f.get("priority_band", "?") + "          ")[:10]
         subj  = f.get("subject", "(no subject)")[:50]
         score = f.get("priority_score", 0)
         alert = f.get("alert_level", "NONE")
-        print(f"  [{band}] {flag} | {subj}")
+        print("  [" + band + "] " + flag + " | " + subj)
         if f.get("categories"):
-            print(f"                 Categories : {', '.join(f['categories'])}")
-        print(f"                 Score      : {score:3d}/100  Alert: {alert}")
+            print("                 Categories : " + ", ".join(f["categories"]))
+        print("                 Score      : " + str(score).rjust(3) + "/100  Alert: " + alert)
         print()
     print(sep)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # Server
-# ═══════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
-def run_server() -> None:
+def run_server():
     logger = logging.getLogger("main.server")
     from src.api_server import app
     logger.info("Starting Email Compliance API server on http://localhost:5050")
@@ -325,54 +345,45 @@ def run_server() -> None:
     app.run(host="0.0.0.0", port=5050, debug=False)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# CLI
-# ═══════════════════════════════════════════════════════════════════════════════
+# =============================================================================
+# CLI argument parser
+# =============================================================================
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser():
     parser = argparse.ArgumentParser(
         prog="python main.py",
         description="Email Compliance AI Agent",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"""
-Examples (all equivalent ways to analyse the default folder):
-  python main.py email_data
-  python main.py --data-dir email_data
-  python main.py --data-dir email_data --log-level DEBUG
-
-Single file:
-  python main.py --file email_data/test_emails.xlsx
-  python main.py --file email_data/test_emails.pdf --log-level DEBUG
-
-Dashboard server:
-  python main.py --server
-  python main.py --server --log-level DEBUG
-
-Full options:
-  python main.py --data-dir email_data --result-dir result --log-dir logs --log-level DEBUG --log-file run01
-
-Defaults (from .env set by setup.ps1):
-  Email input : {_DEFAULT_EMAIL_DATA_DIR}
-  Results     : {_DEFAULT_RESULT_DIR}
-  Logs        : {_DEFAULT_LOG_DIR}
-  Log level   : {_DEFAULT_LOG_LEVEL}
-        """,
+        epilog=(
+            "Examples:\n"
+            "  python main.py email_data                   analyse folder (shorthand)\n"
+            "  python main.py --data-dir email_data        same, explicit flag\n"
+            "  python main.py --data-dir email_data --log-level DEBUG\n"
+            "  python main.py --file email_data/test_emails.xlsx\n"
+            "  python main.py --server                     start dashboard API\n"
+            "  python main.py --server --log-level DEBUG\n"
+            "\n"
+            "Defaults (set by setup.ps1 in .env):\n"
+            "  Email input : " + str(_DEFAULT_EMAIL_DATA_DIR) + "\n"
+            "  Results     : " + str(_DEFAULT_RESULT_DIR) + "\n"
+            "  Logs        : " + str(_DEFAULT_LOG_DIR) + "\n"
+            "  Log level   : " + _DEFAULT_LOG_LEVEL
+        ),
     )
 
-    # ── positional shorthand: python main.py email_data ───────────────────────
+    # Positional shorthand: python main.py email_data
     parser.add_argument(
         "path",
         nargs="?",
         default=None,
         metavar="PATH",
         help=(
-            "Shorthand: a folder path → same as --data-dir, "
-            "a file path → same as --file. "
+            "Shorthand positional argument. "
+            "Pass a folder path (same as --data-dir) or a file path (same as --file). "
             "Example: python main.py email_data"
         ),
     )
 
-    # ── named mode flags ──────────────────────────────────────────────────────
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument(
         "--server",
@@ -390,20 +401,18 @@ Defaults (from .env set by setup.ps1):
         type=str,
         metavar="DIR",
         default=None,
-        help=f"Folder to scan for email files. Default: {_DEFAULT_EMAIL_DATA_DIR}",
+        help="Folder to scan for email files. Default: " + str(_DEFAULT_EMAIL_DATA_DIR),
     )
 
-    # ── output ────────────────────────────────────────────────────────────────
     io_group = parser.add_argument_group("Output options")
     io_group.add_argument(
         "--result-dir",
         type=str,
         default=str(_DEFAULT_RESULT_DIR),
         metavar="DIR",
-        help=f"Directory for result JSON files (default: {_DEFAULT_RESULT_DIR})",
+        help="Directory for result JSON files. Default: " + str(_DEFAULT_RESULT_DIR),
     )
 
-    # ── logging ───────────────────────────────────────────────────────────────
     log_group = parser.add_argument_group("Logging options")
     log_group.add_argument(
         "--log-level",
@@ -413,7 +422,7 @@ Defaults (from .env set by setup.ps1):
         metavar="LEVEL",
         help=(
             "DEBUG | INFO | WARNING | ERROR | CRITICAL  "
-            f"(default from .env: {_DEFAULT_LOG_LEVEL}). "
+            "(default from .env: " + _DEFAULT_LOG_LEVEL + "). "
             "DEBUG also writes a .debug.log file."
         ),
     )
@@ -422,7 +431,7 @@ Defaults (from .env set by setup.ps1):
         type=str,
         default=str(_DEFAULT_LOG_DIR),
         metavar="DIR",
-        help=f"Directory for log files (default: {_DEFAULT_LOG_DIR})",
+        help="Directory for log files. Default: " + str(_DEFAULT_LOG_DIR),
     )
     log_group.add_argument(
         "--log-file",
@@ -439,17 +448,15 @@ Defaults (from .env set by setup.ps1):
     return parser
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # Entry point
-# ═══════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
-def main() -> None:
+def main():
     parser = build_parser()
     args   = parser.parse_args()
 
-    # ── resolve positional shorthand ─────────────────────────────────────────
-    # Allows:  python main.py email_data          (folder)
-    #          python main.py emails/batch1.xlsx  (file)
+    # Resolve positional shorthand: python main.py email_data
     if args.path and not args.server and not args.file and not args.data_dir:
         p = Path(args.path)
         if p.is_dir():
@@ -457,11 +464,10 @@ def main() -> None:
         elif p.is_file():
             args.file = str(p)
         else:
-            print(f"ERROR: '{args.path}' is not a valid file or folder.")
-            print(f"       Check the path and try again.")
+            print("ERROR: '" + args.path + "' is not a valid file or folder.")
             sys.exit(1)
 
-    # ── configure logging first ───────────────────────────────────────────────
+    # Configure logging first
     info_log, debug_log = configure_logging(
         log_level=args.log_level,
         log_dir=args.log_dir,
@@ -470,18 +476,17 @@ def main() -> None:
 
     logger = logging.getLogger("main")
     logger.info("Email Compliance AI Agent starting up")
-    logger.info("Log level    : %s", args.log_level.upper())
-    logger.info("INFO log     : %s", info_log)
+    logger.info("Log level  : %s", args.log_level.upper())
+    logger.info("INFO log   : %s", info_log)
     if debug_log:
-        logger.info("DEBUG log    : %s", debug_log)
-    logger.info("Result dir   : %s", args.result_dir)
-    logger.debug("All CLI args : %s", vars(args))
+        logger.info("DEBUG log  : %s", debug_log)
+    logger.debug("CLI args   : %s", vars(args))
 
-    # ── ensure folders exist ──────────────────────────────────────────────────
+    # Ensure folders exist
     for folder in (_DEFAULT_EMAIL_DATA_DIR, Path(args.result_dir), Path(args.log_dir)):
         folder.mkdir(parents=True, exist_ok=True)
 
-    # ── dispatch ──────────────────────────────────────────────────────────────
+    # Dispatch
     if args.file:
         fp = Path(args.file)
         if not fp.exists():
