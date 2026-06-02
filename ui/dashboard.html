@@ -190,12 +190,14 @@
         You must start the server before using the dashboard.
       </p>
       <div class="sb-step">
-        <strong style="color:var(--text)">Step 1</strong> — Open a PowerShell terminal in your project folder<br/>
-        <strong style="color:var(--text)">Step 2</strong> — Activate your virtual environment:<br/>
+        <strong style="color:var(--text)">Step 1</strong> &mdash; Open a PowerShell terminal in your project folder<br/>
+        <strong style="color:var(--text)">Step 2</strong> &mdash; Activate your virtual environment:<br/>
         &nbsp;&nbsp;<code>.\.venv\Scripts\Activate.ps1</code><br/>
-        <strong style="color:var(--text)">Step 3</strong> — Start the server:<br/>
+        <strong style="color:var(--text)">Step 3</strong> &mdash; Start the server:<br/>
         &nbsp;&nbsp;<code>python main.py --server</code><br/>
-        <strong style="color:var(--text)">Step 4</strong> — Come back to this page and click Retry
+        <strong style="color:var(--text)">Step 4</strong> &mdash; Open the dashboard in your browser at:<br/>
+        &nbsp;&nbsp;<code><a href="http://localhost:5050" target="_blank" style="color:var(--accent1)">http://localhost:5050</a></code><br/>
+        <span style="font-size:10px;color:var(--warn)">&#9888; Do NOT open dashboard.html from File Explorer &mdash; use the URL above.</span>
       </div>
       <button class="sb-retry" onclick="checkHealth()">↻ Retry Connection</button>
     </div>
@@ -257,7 +259,11 @@
 <div id="toast"></div>
 
 <script>
-const API = 'http://localhost:5050';
+// API base URL - works whether served from Flask (http://localhost:5050)
+// or any other host. Uses relative URL so no CORS issues ever occur.
+const API = window.location.origin === 'null' || window.location.protocol === 'file:'
+  ? 'http://localhost:5050'   // fallback if somehow opened from disk
+  : '';                        // same-origin when served through Flask
 let selectedFiles = [];
 let serverOnline  = false;
 
