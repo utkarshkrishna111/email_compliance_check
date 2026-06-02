@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Email Compliance Check — Pipeline Architecture</title>
+  <style>
+    :root {
+      --entry:   #64748B; --entry-bg:   #F1F5F9;
+      --ingest:  #2563EB; --ingest-bg:  #EFF6FF;
+      --context: #0891B2; --context-bg: #ECFEFF;
+      --llm:     #7C3AED; --llm-bg:     #F5F3FF;
+      --guard:   #D97706; --guard-bg:   #FFFBEB;
+      --score:   #EA580C; --score-bg:   #FFF7ED;
+      --persist: #059669; --persist-bg: #ECFDF5;
+      --pattern: #DC2626; --pattern-bg: #FEF2F2;
+      --output:  #0D9488; --output-bg:  #F0FDFA;
+      --border:  #E2E8F0;
+      --text:    #1E293B;
+      --muted:   #64748B;
+      --card-shadow: 0 1px 3px rgba(0,0,0,.10), 0 1px 2px rgba(0,0,0,.06);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #F8FAFC; color: var(--text); line-height: 1.5; }
+
+    /* ── HEADER ── */
+    header { background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%); color: #fff; padding: 32px 40px 24px; }
+    header h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -.5px; }
+    header p  { margin-top: 6px; color: #94A3B8; font-size: .95rem; max-width: 820px; }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .badge { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); border-radius: 9999px; padding: 3px 12px; font-size: .78rem; color: #CBD5E1; }
+
+    /* ── MAIN LAYOUT ── */
+    main { max-width: 1280px; margin: 0 auto; padding: 32px 24px 64px; }
+
+    /* ── OVERVIEW STRIP ── */
+    .overview { display: flex; align-items: stretch; gap: 0; margin-bottom: 48px; border-radius: 12px; overflow: hidden; box-shadow: var(--card-shadow); border: 1px solid var(--border); }
+    .ov-step  { flex: 1; padding: 16px 14px; text-align: center; position: relative; }
+    .ov-step:not(:last-child)::after {
+      content: ''; position: absolute; right: -1px; top: 50%; transform: translateY(-50%);
+      border-left: 14px solid; border-top: 18px solid transparent; border-bottom: 18px solid transparent;
+      z-index: 2;
+    }
+    .ov-step .num  { font-size: .72rem; font-weight: 700; opacity: .7; letter-spacing: 1px; }
+    .ov-step .lbl  { font-size: .82rem; font-weight: 600; margin-top: 4px; }
+    .ov-step .file { font-size: .70rem; font-family: 'Cascadia Code', 'Fira Code', monospace; margin-top: 3px; opacity: .75; }
+
+    /* coloring for each step */
+    .ov-ingest  { background: var(--ingest-bg);  color: var(--ingest);  } .ov-ingest::after  { border-left-color: var(--ingest-bg);  }
+    .ov-ctx     { background: var(--context-bg); color: var(--context); } .ov-ctx::after     { border-left-color: var(--context-bg); }
+    .ov-llm     { background: var(--llm-bg);     color: var(--llm);     } .ov-llm::after     { border-left-color: var(--llm-bg);     }
+    .ov-guard   { background: var(--guard-bg);   color: var(--guard);   } .ov-guard::after   { border-left-color: var(--guard-bg);   }
+    .ov-score   { background: var(--score-bg);   color: var(--score);   } .ov-score::after   { border-left-color: var(--score-bg);   }
+    .ov-persist { background: var(--persist-bg); color: var(--persist); } .ov-persist::after { border-left-color: var(--persist-bg); }
+    .ov-pattern { background: var(--pattern-bg); color: var(--pattern); } .ov-pattern::after { border-left-color: var(--pattern-bg); }
+    .ov-output  { background: var(--output-bg);  color: var(--output);  }
+
+    /* ── STAGE SECTIONS ── */
+    .stage { margin-bottom: 40px; }
+    .stage-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 18px; border-radius: 10px 10px 0 0;
+      border-left: 5px solid; font-weight: 700; font-size: 1rem;
+    }
+    .stage-header .s-num { font-size: .72rem; opacity: .7; letter-spacing: 1px; font-weight: 600; }
+    .stage-body { background: #fff; border: 1px solid var(--border); border-top: none; border-radius: 0 0 10px 10px; padding: 20px; }
+
+    .s-entry   { border-color: var(--entry);   background: var(--entry-bg);   color: var(--entry);   }
+    .s-ingest  { border-color: var(--ingest);  background: var(--ingest-bg);  color: var(--ingest);  }
+    .s-context { border-color: var(--context); background: var(--context-bg); color: var(--context); }
+    .s-llm     { border-color: var(--llm);     background: var(--llm-bg);     color: var(--llm);     }
+    .s-guard   { border-color: var(--guard);   background: var(--guard-bg);   color: var(--guard);   }
+    .s-score   { border-color: var(--score);   background: var(--score-bg);   color: var(--score);   }
+    .s-persist { border-color: var(--persist); background: var(--persist-bg); color: var(--persist); }
+    .s-pattern { border-color: var(--pattern); background: var(--pattern-bg); color: var(--pattern); }
+    .s-output  { border-color: var(--output);  background: var(--output-bg);  color: var(--output);  }
+
+    /* ── COMPONENT GRID ── */
+    .comp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+    .comp-card {
+      border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px;
+      cursor: pointer; transition: box-shadow .15s, transform .1s;
+      background: #FAFAFA;
+      position: relative;
+    }
+    .comp-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.12); transform: translateY(-1px); }
+    .comp-card.active { box-shadow: 0 0 0 2px var(--accent, #3B82F6), 0 4px 14px rgba(0,0,0,.12); }
+
+    .comp-file  { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: .76rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+    .comp-title { font-size: .9rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .comp-desc  { font-size: .8rem; color: #475569; line-height: 1.55; }
+    .comp-fn    { margin-top: 8px; }
+    .comp-fn span { display: inline-block; background: #F1F5F9; border: 1px solid #CBD5E1; border-radius: 4px; font-family: monospace; font-size: .70rem; padding: 1px 7px; margin: 2px 2px 0 0; color: #334155; }
+
+    /* ── DETAIL PANEL ── */
+    .detail-panel {
+      display: none; grid-column: 1 / -1; background: #F8FAFC;
+      border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-top: 4px;
+    }
+    .detail-panel.open { display: block; }
+    .detail-panel h4 { font-size: .88rem; font-weight: 700; margin-bottom: 10px; color: var(--text); }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 640px) { .detail-grid { grid-template-columns: 1fr; } }
+    .dl-section h5 { font-size: .75rem; font-weight: 700; color: var(--muted); letter-spacing: .5px; margin-bottom: 6px; text-transform: uppercase; }
+    .dl-section ul { list-style: none; }
+    .dl-section ul li { font-size: .8rem; color: #334155; padding: 2px 0; padding-left: 14px; position: relative; }
+    .dl-section ul li::before { content: '→'; position: absolute; left: 0; color: var(--muted); font-size: .7rem; top: 3px; }
+    code { background: #EEF2F7; border-radius: 4px; padding: 1px 6px; font-size: .78rem; font-family: 'Cascadia Code', 'Fira Code', monospace; color: #4F46E5; }
+
+    /* ── FLOW ARROW ── */
+    .flow-arrow { display: flex; justify-content: center; align-items: center; padding: 6px 0; }
+    .flow-arrow svg { height: 32px; }
+
+    /* ── DATA FLOW BADGE ── */
+    .data-flow {
+      display: flex; align-items: center; gap: 10px; justify-content: center;
+      padding: 8px 16px; margin: 4px 0 12px; border-radius: 6px;
+      background: #F1F5F9; border: 1px dashed #CBD5E1;
+      font-size: .76rem; color: var(--muted);
+    }
+    .data-flow code { background: #E2E8F0; color: #334155; }
+
+    /* ── LOOP BANNER ── */
+    .loop-banner {
+      background: linear-gradient(90deg, #EFF6FF 0%, #F5F3FF 100%);
+      border: 1px solid #C7D2FE; border-radius: 8px; padding: 10px 18px;
+      font-size: .82rem; color: #3730A3; font-weight: 600; margin-bottom: 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .loop-icon { font-size: 1.1rem; }
+
+    /* ── CROSS-CUTTING ── */
+    .cross-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-top: 16px; }
+    .cross-card { border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; background: #fff; }
+    .cross-card h4 { font-size: .85rem; font-weight: 700; margin-bottom: 6px; }
+    .cross-card p  { font-size: .78rem; color: #475569; line-height: 1.55; }
+
+    /* ── LEGEND ── */
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 28px; padding: 14px 18px; background: #fff; border: 1px solid var(--border); border-radius: 8px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: .76rem; color: #475569; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+    /* ── SECTION DIVIDERS ── */
+    .section-label { font-size: .72rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+
+    /* ── FOOTER ── */
+    footer { background: #1E293B; color: #64748B; text-align: center; padding: 16px; font-size: .78rem; }
+
+    /* ── INLINE TWO-COL ── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } .overview { flex-direction: column; } .ov-step::after { display: none; } }
+
+    /* ── SCHEMA BOX ── */
+    .schema-box { background: #0F172A; color: #7DD3FC; border-radius: 6px; font-family: 'Cascadia Code', monospace; font-size: .72rem; padding: 12px 14px; line-height: 1.7; overflow-x: auto; margin-top: 8px; }
+    .schema-key  { color: #F472B6; }
+    .schema-val  { color: #86EFAC; }
+    .schema-type { color: #FDE68A; }
+    .schema-cmt  { color: #6B7280; }
+
+    /* click hint */
+    .click-hint { font-size: .68rem; color: var(--muted); position: absolute; top: 8px; right: 10px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Email Compliance Check — Pipeline Architecture</h1>
+  <p>
+    AI-powered email surveillance for financial institutions. Ingests PDF/Excel emails,
+    analyzes with Azure OpenAI GPT-4o, detects trading violations, stores findings in
+    SQLite + ChromaDB, and surfaces cross-email patterns (quid pro quo, circular trading).
+  </p>
+  <div class="badge-row">
+    <span class="badge">Python 3.10+</span>
+    <span class="badge">Azure OpenAI GPT-4o</span>
+    <span class="badge">LangChain</span>
+    <span class="badge">LangGraph</span>
+    <span class="badge">SQLite</span>
+    <span class="badge">ChromaDB (cosine)</span>
+    <span class="badge">Flask 3.x</span>
+    <span class="badge">pdfplumber · pandas · openpyxl</span>
+    <span class="badge">Prompt Caching</span>
+    <span class="badge">DFS Cycle Detection</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- ─── HIGH-LEVEL PIPELINE OVERVIEW ─── -->
+  <div class="section-label">High-Level Pipeline — 8 Stages</div>
+  <div class="overview">
+    <div class="ov-step ov-ingest">
+      <div class="num">01</div>
+      <div class="lbl">Ingestion</div>
+      <div class="file">email_reader.py</div>
+    </div>
+    <div class="ov-step ov-ctx">
+      <div class="num">02</div>
+      <div class="lbl">Context Setup</div>
+      <div class="file">thread_detector · history_store</div>
+    </div>
+    <div class="ov-step ov-llm">
+      <div class="num">03</div>
+      <div class="lbl">LLM Analysis</div>
+      <div class="file">compliance_agent.py</div>
+    </div>
+    <div class="ov-step ov-guard">
+      <div class="num">04</div>
+      <div class="lbl">Guardrails</div>
+      <div class="file">guardrails.py</div>
+    </div>
+    <div class="ov-step ov-score">
+      <div class="num">05</div>
+      <div class="lbl">Scoring</div>
+      <div class="file">scoring_engine.py</div>
+    </div>
+    <div class="ov-step ov-persist">
+      <div class="num">06</div>
+      <div class="lbl">Persistence</div>
+      <div class="file">history_store · storage</div>
+    </div>
+    <div class="ov-step ov-pattern">
+      <div class="num">07</div>
+      <div class="lbl">Cross-Pattern</div>
+      <div class="file">qpq · circular</div>
+    </div>
+    <div class="ov-step ov-output">
+      <div class="num">08</div>
+      <div class="lbl">Output / API</div>
+      <div class="file">api_server.py</div>
+    </div>
+  </div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <strong style="font-size:.76rem;color:#334155;margin-right:4px;">Color Key:</strong>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--ingest)"></div>Ingestion</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--context)"></div>Context &amp; History</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--llm)"></div>LLM Analysis</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--guard)"></div>Guardrails</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--score)"></div>Scoring</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--persist)"></div>Persistence / Caching</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--pattern)"></div>Cross-Pattern Detection</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--output)"></div>Output / API</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--entry)"></div>Orchestration</div>
+    <em style="font-size:.72rem;color:var(--muted);margin-left:4px;">Click any card for details</em>
+  </div>
+
+  <!-- ─── STAGE 0: ENTRY POINTS & ORCHESTRATION ─── -->
+  <div class="stage">
+    <div class="stage-header s-entry">
+      <span class="s-num">STAGE 0</span>
+      Entry Points &amp; Orchestration
+    </div>
+    <div class="stage-body">
+      <div class="comp-grid">
+
+        <div class="comp-card" onclick="toggle(this,'d-main')" style="--accent:var(--entry)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">main.py</div>
+          <div class="comp-title">CLI Entry Point &amp; Pipeline Driver</div>
+          <div class="comp-desc">Parses CLI args (3 modes), auto-installs deps, configures rotating + colored logs, then loops over each email running the full pipeline.</div>
+          <div class="comp-fn">
+            <span>argparse</span><span>venv detection</span><span>dep auto-install</span><span>logging.RotatingFileHandler</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-main">
+          <h4>main.py — Detail</h4>
+          <div class="detail-grid">
+            <div class="dl-section">
+              <h5>Three Operating Modes</h5>
+              <ul>
+                <li><code>--server</code> → launches Flask at :5050</li>
+                <li><code>--folder &lt;dir&gt;</code> → batch-processes all PDFs/XLS</li>
+                <li><code>--file &lt;path&gt;</code> → single file analysis</li>
+              </ul>
+            </div>
+            <div class="dl-section">
+              <h5>Pipeline Loop (per email)</h5>
+              <ul>
+                <li>thread_detector → thread_id</li>
+                <li>history_store → retrieve context</li>
+                <li>sender_risk + anomaly_detector → risk flags</li>
+                <li>compliance_agent → LLM finding</li>
+                <li>guardrails → validate + verify</li>
+                <li>scoring_engine → priority score</li>
+                <li>history_store.save_finding → persist</li>
+                <li>qpq + circular → cross-pattern alerts</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="comp-card" onclick="toggle(this,'d-graph')" style="--accent:var(--entry)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/graph.py</div>
+          <div class="comp-title">LangGraph State Machine (Alternative Orchestrator)</div>
+          <div class="comp-desc">Implements the same pipeline as a directed acyclic graph with 10 typed nodes. Each node is a pure function. Conditional edge routes to verify or flag_review based on guardrail pass/fail.</div>
+          <div class="comp-fn">
+            <span>build_graph()</span><span>ComplianceState TypedDict</span><span>run_cross_pattern_analysis()</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-graph">
+          <h4>src/graph.py — LangGraph Node Sequence</h4>
+          <div class="detail-grid">
+            <div class="dl-section">
+              <h5>10 Graph Nodes (in order)</h5>
+              <ul>
+                <li><code>detect_thread</code> → hash thread_id</li>
+                <li><code>retrieve_history</code> → SQLite lookup</li>
+                <li><code>build_context</code> → format prior findings</li>
+                <li><code>compliance_agent</code> → LLM call</li>
+                <li><code>guardrail_check</code> → rule validation</li>
+                <li><code>verify</code> OR <code>flag_review</code> (conditional edge)</li>
+                <li><code>score</code> → priority scoring</li>
+                <li><code>persist</code> → SQLite + ChromaDB</li>
+                <li>END</li>
+              </ul>
+            </div>
+            <div class="dl-section">
+              <h5>State Enrichments</h5>
+              <ul>
+                <li>Sender risk boost: +10% score if HIGH_RISK band</li>
+                <li>Volume anomaly flag appended to finding</li>
+                <li><code>ComplianceState</code> TypedDict carries all intermediate data</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="comp-card" onclick="toggle(this,'d-config')" style="--accent:var(--entry)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/config_loader.py · config/compliance_matrix.yaml</div>
+          <div class="comp-title">Compliance Configuration Loader</div>
+          <div class="comp-desc">Loads the compliance matrix YAML at startup. Defines 7 violation categories (each with base_weight, keywords, description), scoring multipliers, priority band thresholds, and guardrail settings.</div>
+          <div class="comp-fn">
+            <span>load_config(config_path)</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-config">
+          <h4>compliance_matrix.yaml — 7 Violation Categories</h4>
+          <div class="schema-box">
+<span class="schema-key">categories</span>:
+  - <span class="schema-key">id</span>: <span class="schema-val">market_manipulation</span>   <span class="schema-cmt"># base_weight: 10</span>
+  - <span class="schema-key">id</span>: <span class="schema-val">bribery</span>               <span class="schema-cmt"># base_weight:  9</span>
+  - <span class="schema-key">id</span>: <span class="schema-val">secrecy</span>               <span class="schema-cmt"># base_weight:  8</span>
+  - <span class="schema-key">id</span>: <span class="schema-val">employee_ethics</span>       <span class="schema-cmt"># base_weight:  7</span>
+  - <span class="schema-key">id</span>: <span class="schema-val">change_in_communication</span><span class="schema-cmt"># base_weight:  6</span>
+  - <span class="schema-key">id</span>: <span class="schema-val">circular_trading</span>      <span class="schema-cmt"># base_weight: 10</span>
+  - <span class="schema-key">id</span>: <span class="schema-val">complaints</span>            <span class="schema-cmt"># base_weight:  4</span>
+<span class="schema-key">scoring</span>:
+  multi_category_bonus:  <span class="schema-val">1.20</span>
+  high_confidence_bonus: <span class="schema-val">1.15</span>
+  external_recipient:    <span class="schema-val">1.10</span>
+  priority_bands: { critical: 80, high: 60, medium: 40 }
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="flow-arrow">
+    <svg viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="12" y1="0" x2="12" y2="22" stroke="#94A3B8" stroke-width="2"/>
+      <polygon points="6,18 12,28 18,18" fill="#94A3B8"/>
+    </svg>
+  </div>
+
+  <!-- ─── STAGE 1: INGESTION ─── -->
+  <div class="stage">
+    <div class="stage-header s-ingest">
+      <span class="s-num">STAGE 1</span>
+      Ingestion — Parse emails from PDF or Excel
+    </div>
+    <div class="stage-body">
+      <div class="comp-grid">
+
+        <div class="comp-card" onclick="toggle(this,'d-reader')" style="--accent:var(--ingest)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/email_reader.py</div>
+          <div class="comp-title">Email Reader (PDF + Excel)</div>
+          <div class="comp-desc">Detects file extension and dispatches to pdfplumber (PDF) or pandas + openpyxl (Excel). Normalizes all emails to the same dict schema regardless of source format.</div>
+          <div class="comp-fn">
+            <span>load_emails(file_path)</span><span>load_emails_from_folder(folder)</span><span>_extract_pdf()</span><span>_extract_excel()</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-reader">
+          <h4>src/email_reader.py — Detail</h4>
+          <div class="detail-grid">
+            <div class="dl-section">
+              <h5>PDF Extraction</h5>
+              <ul>
+                <li>pdfplumber (pure Python — no DLL deps on Windows)</li>
+                <li>Splits page text on <code>"From:"</code> boundaries</li>
+                <li>Regex parses To, Subject, Date, Cc, Bcc headers</li>
+                <li>ID format: <code>pdf_&lt;filename&gt;_&lt;index&gt;</code></li>
+              </ul>
+            </div>
+            <div class="dl-section">
+              <h5>Excel Extraction</h5>
+              <ul>
+                <li>Flexible column aliasing: finds "from", "to", "subject", "body" variants</li>
+                <li>Supports .xlsx, .xls, .xlsm</li>
+                <li>ID format: <code>xls_&lt;filename&gt;_&lt;index&gt;</code></li>
+              </ul>
+            </div>
+          </div>
+          <h4 style="margin-top:12px;">Output Schema (Email Dict)</h4>
+          <div class="schema-box">
+{ <span class="schema-key">"id"</span>:      <span class="schema-val">"pdf_emails_0"</span>,
+  <span class="schema-key">"source"</span>:  <span class="schema-val">"/path/to/file.pdf"</span>,
+  <span class="schema-key">"from"</span>:    <span class="schema-val">"trader@firm.com"</span>,
+  <span class="schema-key">"to"</span>:      <span class="schema-val">"broker@exchange.com"</span>,
+  <span class="schema-key">"subject"</span>: <span class="schema-val">"Re: Tomorrow's position"</span>,
+  <span class="schema-key">"date"</span>:    <span class="schema-val">"2024-01-15"</span>,
+  <span class="schema-key">"body"</span>:    <span class="schema-val">"Let's coordinate our buy orders..."</span> }
+          </div>
+        </div>
+
+      </div>
+      <div class="data-flow">
+        <span>Output:</span>
+        <code>List[EmailDict]</code>
+        <span>→ Each email enters the per-email pipeline loop below</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="flow-arrow">
+    <svg viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="12" y1="0" x2="12" y2="22" stroke="#94A3B8" stroke-width="2"/>
+      <polygon points="6,18 12,28 18,18" fill="#94A3B8"/>
+    </svg>
+  </div>
+
+  <!-- ─── STAGE 2: CONTEXT SETUP (per-email loop) ─── -->
+  <div class="stage">
+    <div class="stage-header s-context">
+      <span class="s-num">STAGE 2</span>
+      Context Setup — Thread grouping, history retrieval, risk &amp; anomaly analysis
+    </div>
+    <div class="stage-body">
+      <div class="loop-banner">
+        <span class="loop-icon">&#x21BA;</span>
+        Stages 2–5 execute in a loop — once per email. Each email carries its findings forward into the shared SQLite + ChromaDB store.
+      </div>
+      <div class="comp-grid">
+
+        <div class="comp-card" onclick="toggle(this,'d-thread')" style="--accent:var(--context)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/thread_detector.py</div>
+          <div class="comp-title">Thread Detection &amp; Grouping</div>
+          <div class="comp-desc">Generates a stable 16-char thread_id by hashing the normalized subject (strips Re:/Fwd:) plus the sorted participant set. Groups emails by conversation even without Message-ID headers.</div>
+          <div class="comp-fn">
+            <span>detect_thread(email)</span><span>extract_recipients(email)</span><span>is_external_recipient(email, domain)</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-thread">
+          <h4>src/thread_detector.py — Detail</h4>
+          <div class="dl-section">
+            <h5>Thread ID Algorithm</h5>
+            <ul>
+              <li>Strip Re:/Fwd: prefixes, lowercase, collapse whitespace</li>
+              <li>Sort all participants (from + to + cc) alphabetically</li>
+              <li>SHA-256 hash of <code>normalized_subject + joined_participants</code> → first 16 chars</li>
+              <li>Deterministic: same conversation always maps to same thread_id</li>
+              <li><code>is_external_recipient</code> → true if any To address outside <code>INTERNAL_DOMAIN</code></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="comp-card" onclick="toggle(this,'d-hist')" style="--accent:var(--context)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/history_store.py (read path)</div>
+          <div class="comp-title">History Retrieval from SQLite + ChromaDB</div>
+          <div class="comp-desc">Fetches prior findings for the same thread, aggregated sender stats, and 8-week email volume history. This data feeds risk profiling and the LLM context window.</div>
+          <div class="comp-fn">
+            <span>get_thread_history(thread_id)</span><span>get_sender_stats(sender)</span><span>get_weekly_volumes(sender, weeks=8)</span><span>semantic_search(query)</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-hist">
+          <h4>src/history_store.py — SQLite Schema (read tables)</h4>
+          <div class="schema-box">
+<span class="schema-cmt">-- historical_llm_response</span>
+<span class="schema-key">thread_id</span>, <span class="schema-key">sender</span>, <span class="schema-key">recipients</span>, <span class="schema-key">subject</span>, <span class="schema-key">date</span>
+<span class="schema-key">categories</span> <span class="schema-type">[JSON]</span>, <span class="schema-key">confidence</span>, <span class="schema-key">intent</span>
+<span class="schema-key">priority_score</span>, <span class="schema-key">priority_band</span>, <span class="schema-key">alert_level</span>
+INDEX: <span class="schema-val">idx_hlr_thread</span>, <span class="schema-val">idx_hlr_sender</span>
+
+<span class="schema-cmt">-- sender_weekly_volume</span>
+<span class="schema-key">sender</span>, <span class="schema-key">week</span> <span class="schema-type">TEXT</span>, <span class="schema-key">email_count</span> <span class="schema-type">INT</span>
+<span class="schema-cmt">→ used by anomaly_detector for Z-score calculation</span>
+
+<span class="schema-cmt">-- ChromaDB cosine collection</span>
+embeds: subject + reasoning + evidence text
+metadata: thread_id, sender, priority_band, categories
+distance_metric: <span class="schema-val">cosine</span>
+          </div>
+        </div>
+
+        <div class="comp-card" onclick="toggle(this,'d-risk')" style="--accent:var(--context)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/sender_risk.py</div>
+          <div class="comp-title">Sender Risk Profiling</div>
+          <div class="comp-desc">Computes a 0–100 risk score from historical violation rate, average LLM confidence, and severity weight. Bands: CLEAN / LOW_RISK / ELEVATED / HIGH_RISK. A HIGH_RISK sender's priority score gets a +10% boost.</div>
+          <div class="comp-fn">
+            <span>compute_risk_profile(stats)</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-risk">
+          <h4>src/sender_risk.py — Risk Formula</h4>
+          <div class="schema-box">
+raw = (non_compliant / total) × 50
+    + avg_confidence          × 30
+    + normalized_severity     × 20
+
+risk_score = min(100, int(raw))
+
+<span class="schema-cmt">Risk Bands:</span>
+HIGH_RISK  (≥ 70) → priority_score boosted +10% in graph.py
+ELEVATED   (≥ 40)
+LOW_RISK   (≥ 10)
+CLEAN      (&lt; 10)
+          </div>
+        </div>
+
+        <div class="comp-card" onclick="toggle(this,'d-anomaly')" style="--accent:var(--context)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/anomaly_detector.py</div>
+          <div class="comp-title">Volume Spike Detection (Z-Score)</div>
+          <div class="comp-desc">Computes Z-score over the sender's 8-week email history. Flags emails from senders with a sudden volume spike (Z > 2.0 std deviations). Requires ≥3 weeks of data to fire.</div>
+          <div class="comp-fn">
+            <span>detect_volume_anomaly(weekly_volumes, current_week_count)</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-anomaly">
+          <h4>src/anomaly_detector.py — Z-Score Logic</h4>
+          <div class="schema-box">
+z = (current_week_count - mean) / std_dev
+
+<span class="schema-cmt">Conditions:</span>
+requires ≥ 3 weeks of history
+threshold: z &gt; 2.0  →  is_anomalous = True
+
+<span class="schema-cmt">Output:</span>
+{ is_anomalous: bool, z_score: float,
+  mean_weekly: float, std_weekly: float,
+  reason: str }
+          </div>
+        </div>
+
+        <div class="comp-card" onclick="toggle(this,'d-ctx')" style="--accent:var(--context)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/context_builder.py</div>
+          <div class="comp-title">Token-Efficient Context Builder</div>
+          <div class="comp-desc">Formats prior thread findings into a compact block for the LLM prompt. Prior email bodies are replaced with LLM summaries to control token usage. The current email body is always included in full.</div>
+          <div class="comp-fn">
+            <span>build_thread_context(thread_history)</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-ctx">
+          <h4>src/context_builder.py — Context Format</h4>
+          <div class="schema-box">
+<span class="schema-cmt">## Prior findings in this thread:</span>
+[2024-01-10] trader@firm.com → CRITICAL
+  Categories: market_manipulation, circular_trading
+  Confidence: 0.92
+  Summary: "Arranged round-trip trades with counterparty..."
+  Reasoning: "Email explicitly coordinates pre-arranged orders"
+
+<span class="schema-cmt">+ volume_anomaly note if is_anomalous</span>
+<span class="schema-cmt">+ sender_risk band note if HIGH_RISK / ELEVATED</span>
+          </div>
+        </div>
+
+      </div>
+      <div class="data-flow">
+        <span>Output:</span>
+        <code>thread_id</code> · <code>thread_history[]</code> · <code>risk_profile</code> · <code>volume_anomaly</code> · <code>extra_context: str</code>
+        <span>→ passed to LLM</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="flow-arrow">
+    <svg viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="12" y1="0" x2="12" y2="22" stroke="#94A3B8" stroke-width="2"/>
+      <polygon points="6,18 12,28 18,18" fill="#94A3B8"/>
+    </svg>
+  </div>
+
+  <!-- ─── STAGE 3: LLM ANALYSIS ─── -->
+  <div class="stage">
+    <div class="stage-header s-llm">
+      <span class="s-num">STAGE 3</span>
+      LLM Analysis — Azure OpenAI GPT-4o with Prompt Caching
+    </div>
+    <div class="stage-body">
+      <div class="comp-grid">
+
+        <div class="comp-card" onclick="toggle(this,'d-agent')" style="--accent:var(--llm)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/compliance_agent.py</div>
+          <div class="comp-title">Compliance Agent (Primary LLM Analyzer)</div>
+          <div class="comp-desc">Builds a dynamic system prompt from the 7 compliance categories in YAML (&gt;1024 tokens → triggers Azure OpenAI automatic prefix caching). Sends each email body + extra_context as user message. Returns structured JSON.</div>
+          <div class="comp-fn">
+            <span>ComplianceAgent</span><span>analyse(email, extra_context)</span><span>analyse_batch(emails)</span><span>_invoke(prompt)</span><span>_parse(raw)</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-agent">
+          <h4>src/compliance_agent.py — LLM Call Flow</h4>
+          <div class="detail-grid">
+            <div class="dl-section">
+              <h5>Prompt Caching</h5>
+              <ul>
+                <li>System prompt built once from compliance_matrix.yaml</li>
+                <li>~1024+ tokens → Azure OpenAI caches prefix automatically</li>
+                <li>Subsequent calls reuse cached prefix → lower latency + cost</li>
+                <li>LangChain <code>AzureChatOpenAI</code> client with env vars</li>
+              </ul>
+            </div>
+            <div class="dl-section">
+              <h5>Output Schema</h5>
+              <ul>
+                <li><code>categories</code>: List[str] — matched violation IDs</li>
+                <li><code>intent</code>: one-sentence summary</li>
+                <li><code>confidence</code>: 0.0–1.0 float</li>
+                <li><code>evidence</code>: List[str] — quoted email text</li>
+                <li><code>reasoning</code>: explanation paragraph</li>
+                <li><code>is_compliant</code>: bool</li>
+              </ul>
+            </div>
+          </div>
+          <div class="schema-box" style="margin-top:10px;">
+<span class="schema-cmt">// LLM JSON output</span>
+{ <span class="schema-key">"categories"</span>:  [<span class="schema-val">"market_manipulation"</span>, <span class="schema-val">"circular_trading"</span>],
+  <span class="schema-key">"intent"</span>:      <span class="schema-val">"Coordinate round-trip buy orders to inflate price"</span>,
+  <span class="schema-key">"confidence"</span>:  <span class="schema-val">0.94</span>,
+  <span class="schema-key">"evidence"</span>:    [<span class="schema-val">"coordinate our positions before market open"</span>],
+  <span class="schema-key">"reasoning"</span>:   <span class="schema-val">"Email explicitly proposes pre-arranged trades..."</span>,
+  <span class="schema-key">"is_compliant"</span>:<span class="schema-val">false</span> }
+          </div>
+        </div>
+
+      </div>
+      <div class="data-flow">
+        <span>Output:</span>
+        <code>LLM Finding Dict</code>
+        <span>→ categories, confidence, evidence, reasoning, is_compliant</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="flow-arrow">
+    <svg viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="12" y1="0" x2="12" y2="22" stroke="#94A3B8" stroke-width="2"/>
+      <polygon points="6,18 12,28 18,18" fill="#94A3B8"/>
+    </svg>
+  </div>
+
+  <!-- ─── STAGE 4: GUARDRAILS ─── -->
+  <div class="stage">
+    <div class="stage-header s-guard">
+      <span class="s-num">STAGE 4</span>
+      Guardrails — Two-stage output validation &amp; correction
+    </div>
+    <div class="stage-body">
+      <div class="comp-grid">
+
+        <div class="comp-card" onclick="toggle(this,'d-gv')" style="--accent:var(--guard)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/guardrails.py — Stage 1</div>
+          <div class="comp-title">GuardrailValidator (Rule-Based)</div>
+          <div class="comp-desc">Validates LLM JSON without a second API call. Checks structure, types, value ranges, category whitelist membership, minimum evidence lines, minimum reasoning length, and a soft hallucination guard that verifies evidence fingerprints appear in the original email body.</div>
+          <div class="comp-fn">
+            <span>GuardrailValidator</span><span>validate(finding, email_body)</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-gv">
+          <h4>GuardrailValidator — Checks (in order)</h4>
+          <div class="dl-section">
+            <ul>
+              <li>Required keys present: categories, confidence, evidence, reasoning, is_compliant</li>
+              <li>Types correct: confidence float, categories list, is_compliant bool</li>
+              <li>Confidence in [0.0, 1.0]</li>
+              <li>All categories in VALID_CATEGORIES whitelist (from YAML)</li>
+              <li>Non-compliant findings must have ≥1 evidence line</li>
+              <li>Reasoning must be ≥30 characters</li>
+              <li>Soft hallucination guard: at least one evidence phrase must appear as a substring in the email body</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="comp-card" onclick="toggle(this,'d-cv')" style="--accent:var(--guard)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/guardrails.py — Stage 2</div>
+          <div class="comp-title">ComplianceVerifier (Second LLM Pass)</div>
+          <div class="comp-desc">Optional second call to Azure OpenAI with the finding for independent verification. The LLM can return "confirmed" (keep original) or "corrected" (update categories/confidence). Adds a verification_note to the finding.</div>
+          <div class="comp-fn">
+            <span>ComplianceVerifier</span><span>verify(finding, email)</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-cv">
+          <h4>ComplianceVerifier — Two Outcomes</h4>
+          <div class="detail-grid">
+            <div class="dl-section">
+              <h5>Confirmed</h5>
+              <ul>
+                <li>Verifier agrees with original finding</li>
+                <li>Original categories + confidence preserved</li>
+                <li><code>verification_note: "Confirmed."</code></li>
+              </ul>
+            </div>
+            <div class="dl-section">
+              <h5>Corrected</h5>
+              <ul>
+                <li>Verifier disagrees → updates categories and/or confidence</li>
+                <li>Corrected values replace originals</li>
+                <li><code>verification_note</code> explains the correction</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="data-flow">
+        <span>Output:</span>
+        <code>validated Finding</code>
+        <span>with optional corrections + verification_note → continues to scoring</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="flow-arrow">
+    <svg viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="12" y1="0" x2="12" y2="22" stroke="#94A3B8" stroke-width="2"/>
+      <polygon points="6,18 12,28 18,18" fill="#94A3B8"/>
+    </svg>
+  </div>
+
+  <!-- ─── STAGE 5: SCORING ─── -->
+  <div class="stage">
+    <div class="stage-header s-score">
+      <span class="s-num">STAGE 5</span>
+      Scoring — Priority score, band &amp; alert level
+    </div>
+    <div class="stage-body">
+      <div class="comp-grid">
+
+        <div class="comp-card" onclick="toggle(this,'d-score')" style="--accent:var(--score)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/scoring_engine.py</div>
+          <div class="comp-title">ScoringEngine</div>
+          <div class="comp-desc">Computes a 0–100 priority score from category base weights, confidence level, and multi-category bonus. Maps score to priority band (CRITICAL/HIGH/MEDIUM/LOW/COMPLIANT) and alert level (HIGH/MEDIUM/LOW).</div>
+          <div class="comp-fn">
+            <span>ScoringEngine(config)</span><span>score(finding)</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-score">
+          <h4>src/scoring_engine.py — Scoring Formula</h4>
+          <div class="schema-box">
+<span class="schema-cmt">Step 1: Raw score</span>
+raw = Σ category.base_weight   <span class="schema-cmt">(e.g. market_manip=10 + circular=10 = 20)</span>
+
+<span class="schema-cmt">Step 2: Multipliers</span>
+if len(categories) ≥ 2: raw × 1.20  <span class="schema-cmt">(multi-category bonus)</span>
+if confidence ≥ 0.80:   raw × 1.15  <span class="schema-cmt">(high-confidence bonus)</span>
+
+<span class="schema-cmt">Step 3: Normalize</span>
+priority_score = min(100, int(raw / max_raw_score × 100))
+
+<span class="schema-cmt">Priority Bands (score thresholds):</span>
+CRITICAL  ≥ 80  →  alert_level HIGH   (confidence ≥ 0.80)
+HIGH      ≥ 60  →  alert_level MEDIUM (confidence ≥ 0.50)
+MEDIUM    ≥ 40  →  alert_level LOW
+LOW       ≥  0
+COMPLIANT      (no categories detected)
+          </div>
+        </div>
+
+      </div>
+      <div class="data-flow">
+        <span>Output:</span>
+        <code>priority_score</code> · <code>priority_band</code> · <code>alert_level</code> · <code>score_breakdown</code>
+        <span>→ augmented onto the finding dict → persisted</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="flow-arrow">
+    <svg viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="12" y1="0" x2="12" y2="22" stroke="#94A3B8" stroke-width="2"/>
+      <polygon points="6,18 12,28 18,18" fill="#94A3B8"/>
+    </svg>
+  </div>
+
+  <!-- ─── STAGE 6: PERSISTENCE ─── -->
+  <div class="stage">
+    <div class="stage-header s-persist">
+      <span class="s-num">STAGE 6</span>
+      Persistence — SQLite + ChromaDB (cosine) + JSON files
+    </div>
+    <div class="stage-body">
+      <div class="comp-grid">
+
+        <div class="comp-card" onclick="toggle(this,'d-hs-write')" style="--accent:var(--persist)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/history_store.py (write path)</div>
+          <div class="comp-title">Dual Write: SQLite + ChromaDB</div>
+          <div class="comp-desc">Every scored finding is written to SQLite (3 tables for structured queries) and ChromaDB (cosine-indexed vector store for semantic similarity search). The recipient_network table is incrementally updated with sender→recipient edges, used by circular trading detector.</div>
+          <div class="comp-fn">
+            <span>save_finding(finding, thread_id, recipients, is_external)</span><span>_save_to_chroma(finding)</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-hs-write">
+          <h4>src/history_store.py — Write Flow</h4>
+          <div class="detail-grid">
+            <div class="dl-section">
+              <h5>SQLite Tables</h5>
+              <ul>
+                <li><strong>historical_llm_response</strong> — full finding record per email</li>
+                <li><strong>recipient_network</strong> — (sender, recipient, email_count, flagged_count) — graph edges for circular trading</li>
+                <li><strong>sender_weekly_volume</strong> — (sender, week, email_count) — for anomaly Z-score</li>
+                <li>Indices: <code>idx_hlr_thread</code>, <code>idx_hlr_sender</code></li>
+              </ul>
+            </div>
+            <div class="dl-section">
+              <h5>ChromaDB Write</h5>
+              <ul>
+                <li>Collection: <code>email_compliance</code></li>
+                <li>Embeds: <code>subject + reasoning + evidence</code></li>
+                <li>Distance metric: <strong>cosine</strong></li>
+                <li>Metadata stored: thread_id, sender, priority_band, categories, is_compliant</li>
+                <li>Enables <code>semantic_search(query)</code> — "find similar past violations"</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="comp-card" onclick="toggle(this,'d-storage')" style="--accent:var(--persist)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/storage.py</div>
+          <div class="comp-title">JSON File Results Storage</div>
+          <div class="comp-desc">After the full batch completes, writes a timestamped JSON results file and maintains a stable "latest.json" alias. The dashboard always reads latest.json for instant load. Supports run history browsing.</div>
+          <div class="comp-fn">
+            <span>ResultsStorage</span><span>save(findings)</span><span>load_latest()</span><span>list_runs()</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-storage">
+          <h4>src/storage.py — File Paths</h4>
+          <div class="schema-box">
+result/
+  compliance_20240115_143022.json   <span class="schema-cmt">← timestamped (immutable)</span>
+  compliance_20240116_091544.json
+  latest.json                       <span class="schema-cmt">← always latest run (symlink copy)</span>
+
+<span class="schema-cmt">JSON payload:</span>
+{ generated_at, run_label, total_emails, non_compliant,
+  findings: [ ...scored finding objects... ] }
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="flow-arrow">
+    <svg viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="12" y1="0" x2="12" y2="22" stroke="#94A3B8" stroke-width="2"/>
+      <polygon points="6,18 12,28 18,18" fill="#94A3B8"/>
+    </svg>
+  </div>
+
+  <!-- ─── STAGE 7: CROSS-PATTERN DETECTION ─── -->
+  <div class="stage">
+    <div class="stage-header s-pattern">
+      <span class="s-num">STAGE 7</span>
+      Cross-Pattern Detection — Quid Pro Quo &amp; Circular Trading
+    </div>
+    <div class="stage-body">
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">
+        Runs after all emails are persisted. Queries the accumulated SQLite data across the entire batch (and all prior batches) to find multi-party patterns invisible at the per-email level.
+      </p>
+      <div class="comp-grid">
+
+        <div class="comp-card" onclick="toggle(this,'d-qpq')" style="--accent:var(--pattern)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/quid_pro_quo_detector.py</div>
+          <div class="comp-title">Quid Pro Quo Detector (Reciprocal Favor)</div>
+          <div class="comp-desc">Finds pairs (A, B) where A sent a flagged email to B AND B sent a flagged email to A within a 30-day rolling window. Filters by bribery / market_manipulation / employee_ethics categories. Verifies cross-addressing: sender1 appears in recipients2 and vice versa.</div>
+          <div class="comp-fn">
+            <span>detect_quid_pro_quo(db_path, days_window=30)</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-qpq">
+          <h4>src/quid_pro_quo_detector.py — Detection Logic</h4>
+          <div class="dl-section">
+            <ul>
+              <li>SQL query: all non-compliant findings with QPQ-relevant categories</li>
+              <li>Self-join on sender/recipient pairs within 30-day window</li>
+              <li>Filter: party_a appears in party_b's recipients AND vice versa</li>
+              <li>Output per alert: <code>pattern, party_a, party_b, email_ids, subjects, severity, avg_confidence, reasoning</code></li>
+              <li>Severity escalation: CRITICAL if avg_confidence &gt; 0.85</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="comp-card" onclick="toggle(this,'d-circ')" style="--accent:var(--pattern)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/circular_trading_detector.py</div>
+          <div class="comp-title">Circular Trading Detector (Graph Cycle Detection)</div>
+          <div class="comp-desc">Builds a directed communication graph from the recipient_network table (only edges with flagged_count ≥ 1 and market_manipulation or circular_trading categories). Runs DFS to find cycles of length 3–6, e.g. A→B→C→A. Deduplicates by lexicographic rotation.</div>
+          <div class="comp-fn">
+            <span>detect_circular_trading(db_path, min_flagged=1, max_cycle_length=6)</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-circ">
+          <h4>src/circular_trading_detector.py — Algorithm</h4>
+          <div class="dl-section">
+            <ul>
+              <li>Load <code>recipient_network</code>: edges where <code>flagged_count ≥ min_flagged</code></li>
+              <li>Filter edges: sender must have market_manipulation or circular_trading finding in history</li>
+              <li>Build <code>NetworkX DiGraph</code> (or manual adjacency dict)</li>
+              <li>DFS from each node, track path; if path closes a cycle → emit alert</li>
+              <li>Cycle lengths 3 to <code>max_cycle_length</code> (default 6)</li>
+              <li>Dedup: store cycles with lexicographically smallest node first → avoids A→B→C = C→A→B</li>
+              <li>Alert fields: <code>pattern, participants[], cycle_length, description, severity</code></li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+      <div class="data-flow">
+        <span>Output:</span>
+        <code>qpq_alerts[]</code> · <code>circular_alerts[]</code>
+        <span>→ surfaced via <code>/api/patterns</code> on dashboard</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARROW -->
+  <div class="flow-arrow">
+    <svg viewBox="0 0 24 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <line x1="12" y1="0" x2="12" y2="22" stroke="#94A3B8" stroke-width="2"/>
+      <polygon points="6,18 12,28 18,18" fill="#94A3B8"/>
+    </svg>
+  </div>
+
+  <!-- ─── STAGE 8: OUTPUT / API ─── -->
+  <div class="stage">
+    <div class="stage-header s-output">
+      <span class="s-num">STAGE 8</span>
+      Output — Flask Dashboard &amp; REST API
+    </div>
+    <div class="stage-body">
+      <div class="comp-grid">
+
+        <div class="comp-card" onclick="toggle(this,'d-api')" style="--accent:var(--output)">
+          <span class="click-hint">click to expand</span>
+          <div class="comp-file">src/api_server.py</div>
+          <div class="comp-title">Flask Dashboard &amp; REST API (:5050)</div>
+          <div class="comp-desc">Serves the compliance dashboard HTML and exposes REST endpoints for file upload + analysis, results retrieval, run history browsing, and cross-pattern alerts. The _run_pipeline helper mirrors the main.py pipeline for web uploads.</div>
+          <div class="comp-fn">
+            <span>GET /</span><span>POST /api/analyse</span><span>GET /api/results</span><span>GET /api/results/list</span><span>GET /api/patterns</span><span>GET /api/health</span>
+          </div>
+        </div>
+        <div class="detail-panel" id="d-api">
+          <h4>src/api_server.py — API Surface</h4>
+          <div class="schema-box">
+GET  /                     <span class="schema-cmt">→ Serve dashboard.html</span>
+GET  /architecture         <span class="schema-cmt">→ Serve architecture.html</span>
+GET  /api/health           <span class="schema-cmt">→ { status: "ok", version, model }</span>
+POST /api/analyse          <span class="schema-cmt">→ Upload PDF/XLS, run pipeline, return findings</span>
+GET  /api/results          <span class="schema-cmt">→ Load result/latest.json</span>
+GET  /api/results/list     <span class="schema-cmt">→ List all timestamped runs (newest first)</span>
+GET  /api/results/&lt;file&gt;  <span class="schema-cmt">→ Load specific run by filename</span>
+GET  /api/patterns         <span class="schema-cmt">→ { quid_pro_quo: [], circular_trading: [] }</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── CROSS-CUTTING CONCERNS ─── -->
+  <div class="section-label">Cross-Cutting Concerns</div>
+  <div class="cross-grid">
+
+    <div class="cross-card" style="border-left:4px solid var(--llm)">
+      <h4 style="color:var(--llm)">Azure OpenAI Prompt Caching</h4>
+      <p>
+        The compliance_agent system prompt is built once from compliance_matrix.yaml categories
+        (~1024+ tokens). Azure OpenAI automatically caches this prefix on the server side.
+        Repeated calls within the same session skip re-tokenizing the system prompt, reducing
+        latency and cost on large email batches.
+      </p>
+    </div>
+
+    <div class="cross-card" style="border-left:4px solid var(--persist)">
+      <h4 style="color:var(--persist)">ChromaDB Cosine Similarity Search</h4>
+      <p>
+        Every finding is embedded (subject + reasoning + evidence) into ChromaDB with
+        <code>cosine</code> distance metric. The <code>semantic_search(query)</code> API lets
+        compliance officers find similar past violations by natural-language query — e.g.
+        "coordinate buy orders before open" — without needing exact SQL matches.
+      </p>
+    </div>
+
+    <div class="cross-card" style="border-left:4px solid var(--context)">
+      <h4 style="color:var(--context)">SQLite Index Strategy</h4>
+      <p>
+        Two composite indices on the main findings table:
+        <code>idx_hlr_thread</code> on <code>(thread_id, created_at)</code> for fast thread
+        history retrieval, and <code>idx_hlr_sender</code> on <code>(sender, is_compliant)</code>
+        for fast sender risk aggregation. Both are read on every email in the pipeline loop.
+      </p>
+    </div>
+
+    <div class="cross-card" style="border-left:4px solid var(--entry)">
+      <h4 style="color:var(--entry)">LangGraph State Machine (Optional Path)</h4>
+      <p>
+        <code>graph.py</code> reimplements the same pipeline as a typed
+        <code>ComplianceState</code> directed graph with 10 nodes. Enables future integration
+        with LangSmith tracing, parallel fan-out of emails, and node-level retries without
+        changes to business logic.
+      </p>
+    </div>
+
+    <div class="cross-card" style="border-left:4px solid var(--score)">
+      <h4 style="color:var(--score)">Scoring Multiplier Chain</h4>
+      <p>
+        Scoring applies multipliers in sequence: multi-category bonus (×1.20 if ≥2 categories),
+        high-confidence bonus (×1.15 if confidence ≥0.80), external-recipient flag (×1.10 from
+        config), and finally a +10% boost in graph.py for HIGH_RISK senders. The chain ensures
+        the most dangerous, multi-faceted emails always surface at CRITICAL.
+      </p>
+    </div>
+
+    <div class="cross-card" style="border-left:4px solid var(--pattern)">
+      <h4 style="color:var(--pattern)">Pattern Detectors are Post-Hoc</h4>
+      <p>
+        QPQ and circular trading detectors never run per-email — they query the accumulated
+        SQLite history after the full batch completes. This means a circular trading ring
+        (A→B→C→A) is detected even if A, B, and C appear in different uploaded files or
+        across different pipeline runs on different days.
+      </p>
+    </div>
+
+  </div>
+
+  <!-- ─── FULL DATA FLOW SUMMARY ─── -->
+  <div class="section-label">End-to-End Data Flow</div>
+  <div style="background:#0F172A;border-radius:10px;padding:20px 24px;overflow-x:auto;">
+    <pre style="color:#E2E8F0;font-family:'Cascadia Code','Fira Code',monospace;font-size:.75rem;line-height:1.8;margin:0;"><span style="color:#94A3B8">INPUT</span>
+  PDF / Excel file  ──→  <span style="color:#60A5FA">email_reader.load_emails()</span>
+                              │
+                              │  List[{id, from, to, subject, date, body}]
+                              ▼
+<span style="color:#94A3B8">FOR EACH EMAIL:</span>
+  <span style="color:#67E8F9">thread_detector.detect_thread()</span>       ──→  thread_id (16-char hash)
+  <span style="color:#67E8F9">history_store.get_thread_history()</span>    ──→  prior findings[]
+  <span style="color:#67E8F9">history_store.get_sender_stats()</span>      ──→  violation stats
+  <span style="color:#67E8F9">history_store.get_weekly_volumes()</span>    ──→  8-week counts[]
+  <span style="color:#67E8F9">sender_risk.compute_risk_profile()</span>    ──→  {risk_score, risk_band}
+  <span style="color:#67E8F9">anomaly_detector.detect_volume_anomaly()</span> ──→ {is_anomalous, z_score}
+  <span style="color:#67E8F9">context_builder.build_thread_context()</span> ──→ extra_context: str
+                              │
+                              ▼
+  <span style="color:#C4B5FD">compliance_agent.analyse(email, extra_context)</span>  ← Azure OpenAI (cached prompt)
+                              │
+                              │  {categories, confidence, intent, evidence, reasoning}
+                              ▼
+  <span style="color:#FCD34D">guardrails.GuardrailValidator.validate()</span>  ← rule-based checks (no API call)
+  <span style="color:#FCD34D">guardrails.ComplianceVerifier.verify()</span>    ← 2nd LLM call (optional)
+                              │
+                              ▼
+  <span style="color:#FB923C">scoring_engine.score()</span>  ──→  {priority_score, priority_band, alert_level}
+                              │
+                              ▼
+  <span style="color:#34D399">history_store.save_finding()</span>  ──→  SQLite (3 tables) + ChromaDB (cosine index)
+  <span style="color:#34D399">storage.save()</span>             ──→  result/compliance_&lt;ts&gt;.json + latest.json
+
+<span style="color:#94A3B8">AFTER ALL EMAILS:</span>
+  <span style="color:#F87171">quid_pro_quo_detector.detect_quid_pro_quo()</span>    ──→  reciprocal-pair alerts[]
+  <span style="color:#F87171">circular_trading_detector.detect_circular()</span>    ──→  cycle alerts[]
+
+<span style="color:#94A3B8">OUTPUT:</span>
+  Flask dashboard  :5050  →  /api/results, /api/patterns, /api/analyse
+  result/latest.json  →  consumed by dashboard GET /api/results</pre>
+  </div>
+
+</main>
+
+<footer>
+  Email Compliance Check — Pipeline Architecture Reference &nbsp;|&nbsp; For architects and senior developers
+</footer>
+
+<script>
+  function toggle(card, panelId) {
+    const panel = document.getElementById(panelId);
+    const isOpen = panel.classList.contains('open');
+    // close all panels in same stage body
+    const stageBody = card.closest('.stage-body, .comp-grid');
+    stageBody.querySelectorAll('.detail-panel').forEach(p => p.classList.remove('open'));
+    stageBody.querySelectorAll('.comp-card').forEach(c => c.classList.remove('active'));
+    if (!isOpen) {
+      panel.classList.add('open');
+      card.classList.add('active');
+      // Scroll panel into view after a tick
+      setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+    }
+  }
+</script>
+</body>
+</html>
