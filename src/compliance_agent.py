@@ -61,7 +61,7 @@ Rules:
 """
 
 ANALYSIS_TEMPLATE = """Analyse the following email for compliance violations.
-
+{context}
 --- EMAIL START ---
 From:    {from_}
 To:      {to}
@@ -90,9 +90,10 @@ class ComplianceAgent:
 
     # ── public ───────────────────────────────────────────────────────────────
 
-    def analyse(self, email: Dict[str, Any]) -> Dict[str, Any]:
+    def analyse(self, email: Dict[str, Any], extra_context: str = "") -> Dict[str, Any]:
         """Analyse one email dict; return merged compliance finding."""
         prompt = ANALYSIS_TEMPLATE.format(
+            context=extra_context,
             from_=email.get("from", ""),
             to=email.get("to", ""),
             subject=email.get("subject", ""),
