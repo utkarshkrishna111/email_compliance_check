@@ -3,356 +3,1078 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Email Compliance AI – Architecture</title>
+<title>Email Compliance AI – System Architecture</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
-  :root {
-    --bg:       #0b0e17;
-    --surface:  #111624;
-    --border:   #1e2740;
-    --accent1:  #4f8ef7;
-    --accent2:  #7b5af7;
-    --accent3:  #1fd1a0;
-    --warn:     #f7a84f;
-    --danger:   #f75a5a;
-    --text:     #e2e8f8;
-    --muted:    #6b7a9f;
-    --glow1:    rgba(79,142,247,.18);
-    --glow2:    rgba(123,90,247,.18);
-    --glow3:    rgba(31,209,160,.15);
-  }
+:root {
+  --bg:       #0b0e17;
+  --surface:  #111624;
+  --surface2: #161d30;
+  --border:   #1e2740;
+  --accent1:  #4f8ef7;
+  --accent2:  #7b5af7;
+  --accent3:  #1fd1a0;
+  --warn:     #f7a84f;
+  --danger:   #f75a5a;
+  --crimson:  #e8456a;
+  --text:     #e2e8f8;
+  --muted:    #6b7a9f;
+  --glow1:    rgba(79,142,247,.18);
+  --glow2:    rgba(123,90,247,.18);
+  --glow3:    rgba(31,209,160,.15);
+  --glow4:    rgba(247,168,79,.13);
+  --glowR:    rgba(232,69,106,.18);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'DM Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-size: 13px;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.012) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none; z-index: 0;
+}
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+/* ── layout ── */
+.page { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 48px 24px 100px; }
 
-  body {
-    font-family: 'DM Mono', monospace;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+/* ── nav ── */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(11,14,23,.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex; gap: 0; overflow-x: auto;
+}
+nav a {
+  display: block; padding: 14px 18px;
+  font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted); text-decoration: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: color .2s, border-color .2s;
+}
+nav a:hover, nav a.active { color: var(--accent1); border-bottom-color: var(--accent1); }
 
-  /* ---------- grid noise overlay ---------- */
-  body::before {
-    content: '';
-    position: fixed; inset: 0;
-    background-image:
-      linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,.015) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
+/* ── section headers ── */
+.section { margin-top: 72px; }
+.section-label {
+  font-size: 10px; letter-spacing: 4px; text-transform: uppercase;
+  color: var(--accent3); margin-bottom: 10px;
+}
+.section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(22px, 4vw, 36px); font-weight: 800;
+  background: linear-gradient(135deg, var(--accent1), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+.section-sub { color: var(--muted); font-size: 12px; line-height: 1.7; margin-bottom: 36px; }
 
-  .page { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 48px 24px 80px; }
+/* ── page header ── */
+header { text-align: center; margin-bottom: 56px; padding-top: 16px; }
+.eyebrow { font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--accent3); margin-bottom: 16px; }
+h1 {
+  font-family: 'Syne', sans-serif; font-size: clamp(30px, 6vw, 56px); font-weight: 800; line-height: 1.1;
+  background: linear-gradient(135deg, var(--accent1) 0%, var(--accent2) 55%, var(--accent3) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px;
+}
+.subtitle { color: var(--muted); font-size: 12px; letter-spacing: 1px; }
 
-  /* ---------- header ---------- */
-  header { text-align: center; margin-bottom: 64px; }
-  .eyebrow {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px; letter-spacing: 4px; text-transform: uppercase;
-    color: var(--accent3); margin-bottom: 16px;
-  }
-  h1 {
-    font-family: 'Syne', sans-serif;
-    font-size: clamp(28px, 5vw, 52px);
-    font-weight: 800; line-height: 1.1;
-    background: linear-gradient(135deg, var(--accent1) 0%, var(--accent2) 60%, var(--accent3) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    margin-bottom: 12px;
-  }
-  .subtitle { color: var(--muted); font-size: 13px; letter-spacing: 1px; }
+/* ── card ── */
+.card {
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 22px 24px; background: var(--surface);
+  transition: transform .25s, box-shadow .25s;
+}
+.card:hover { transform: translateY(-2px); }
+.card-icon { font-size: 24px; margin-bottom: 12px; }
+.card-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.card-desc { font-size: 11px; color: var(--muted); line-height: 1.6; }
+.card-file { margin-top: 12px; font-size: 10px; color: var(--accent3); letter-spacing: .5px; }
+.tag {
+  display: inline-block; margin-top: 10px; padding: 2px 8px; border-radius: 4px;
+  font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+}
+.tag-new { background: rgba(31,209,160,.15); color: var(--accent3); }
+.tag-ai  { background: rgba(123,90,247,.15); color: var(--accent2); }
+.tag-db  { background: rgba(79,142,247,.13); color: var(--accent1); }
+.tag-api { background: rgba(247,168,79,.13); color: var(--warn); }
+.tag-det { background: rgba(232,69,106,.15); color: var(--crimson); }
 
-  /* ---------- legend ---------- */
-  .legend {
-    display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;
-    margin-bottom: 48px;
-  }
-  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--muted); }
-  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+/* colour borders */
+.c-blue   { border-color: #1e3a5f; box-shadow: 0 0 28px var(--glow1); }
+.c-blue   .card-title { color: var(--accent1); }
+.c-purple { border-color: #2d1e5f; box-shadow: 0 0 28px var(--glow2); }
+.c-purple .card-title { color: var(--accent2); }
+.c-green  { border-color: #1a3d30; box-shadow: 0 0 28px var(--glow3); }
+.c-green  .card-title { color: var(--accent3); }
+.c-amber  { border-color: #3d2e10; box-shadow: 0 0 28px var(--glow4); }
+.c-amber  .card-title { color: var(--warn); }
+.c-red    { border-color: #4a1a28; box-shadow: 0 0 28px var(--glowR); }
+.c-red    .card-title { color: var(--crimson); }
 
-  /* ---------- arch container ---------- */
-  .arch-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    grid-template-rows: auto auto auto auto;
-    gap: 0;
-    position: relative;
-  }
+/* ── grid helpers ── */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+@media (max-width: 900px) { .grid3, .grid4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .grid2, .grid3, .grid4 { grid-template-columns: 1fr; } }
 
-  /* ---------- nodes ---------- */
-  .node {
-    position: relative;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px 22px;
-    margin: 12px;
-    background: var(--surface);
-    transition: transform .25s, box-shadow .25s;
-    cursor: default;
-  }
-  .node:hover { transform: translateY(-3px); }
+/* ── pipeline flow ── */
+.pipeline {
+  display: flex; flex-direction: column; gap: 0;
+  border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+}
+.pipe-node {
+  display: grid; grid-template-columns: 44px 200px 1fr;
+  align-items: start; padding: 18px 20px; gap: 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background .2s;
+  cursor: default;
+}
+.pipe-node:last-child { border-bottom: none; }
+.pipe-node:hover { background: var(--surface2); }
+.pipe-step {
+  font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800;
+  background: linear-gradient(135deg, var(--accent1), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  padding-top: 2px;
+}
+.pipe-name { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; color: var(--text); padding-top: 2px; }
+.pipe-file { font-size: 10px; color: var(--accent3); margin-top: 4px; }
+.pipe-detail { font-size: 11px; color: var(--muted); line-height: 1.6; padding-top: 2px; }
+.pipe-badge {
+  display: inline-block; padding: 1px 7px; border-radius: 4px;
+  font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+  margin-left: 8px; vertical-align: middle;
+}
+.badge-llm  { background: rgba(123,90,247,.2); color: var(--accent2); }
+.badge-rule { background: rgba(31,209,160,.15); color: var(--accent3); }
+.badge-sql  { background: rgba(79,142,247,.13); color: var(--accent1); }
+.badge-new  { background: rgba(232,69,106,.15); color: var(--crimson); }
+.pipe-arrow {
+  display: flex; justify-content: center; align-items: center;
+  padding: 6px 0 2px 0; color: var(--muted); font-size: 16px;
+  letter-spacing: 1px;
+}
+.branch-row {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  padding: 0 20px 12px;
+}
+.branch-card {
+  border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+  background: var(--surface2);
+}
+.branch-card .b-label { font-size: 10px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+.branch-card .b-name  { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; }
+.branch-card .b-desc  { font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+.branch-pass .b-name { color: var(--accent3); }
+.branch-fail .b-name { color: var(--danger); }
 
-  .node-icon {
-    font-size: 22px; margin-bottom: 10px;
-  }
-  .node-title {
-    font-family: 'Syne', sans-serif;
-    font-size: 13px; font-weight: 700;
-    color: var(--text); margin-bottom: 6px;
-  }
-  .node-desc { font-size: 10px; color: var(--muted); line-height: 1.5; }
-  .node-tag {
-    display: inline-block; margin-top: 10px;
-    padding: 2px 8px; border-radius: 4px;
-    font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
-    background: var(--border); color: var(--muted);
-  }
+/* ── cross-pattern section ── */
+.pattern-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media(max-width:700px){ .pattern-grid { grid-template-columns: 1fr; } }
 
-  /* colour variants */
-  .node-data   { border-color: #1e3a5f; box-shadow: 0 0 30px var(--glow1); }
-  .node-data   .node-title { color: var(--accent1); }
-  .node-data   .node-tag   { background: rgba(79,142,247,.12); color: var(--accent1); }
+.pattern-card {
+  border-radius: 14px; padding: 28px; border: 1px solid;
+  position: relative; overflow: hidden;
+}
+.pattern-card::before {
+  content: ''; position: absolute; inset: 0;
+  opacity: .04; pointer-events: none;
+  background: radial-gradient(circle at top right, currentColor 0%, transparent 70%);
+}
+.pc-qpq  { border-color: #3d1e28; background: linear-gradient(135deg, rgba(232,69,106,.05), var(--surface)); }
+.pc-ct   { border-color: #1e2e4a; background: linear-gradient(135deg, rgba(79,142,247,.05), var(--surface)); }
+.pc-qpq .pc-icon { color: var(--crimson); }
+.pc-ct  .pc-icon { color: var(--accent1); }
+.pc-icon { font-size: 32px; margin-bottom: 14px; }
+.pc-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; margin-bottom: 8px; }
+.pc-qpq .pc-title { color: var(--crimson); }
+.pc-ct  .pc-title { color: var(--accent1); }
+.pc-desc { font-size: 11px; color: var(--muted); line-height: 1.7; margin-bottom: 18px; }
+.pc-steps { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.pc-steps li {
+  display: flex; gap: 10px; align-items: flex-start;
+  font-size: 11px; color: var(--text); line-height: 1.5;
+}
+.pc-steps li::before {
+  content: attr(data-n);
+  min-width: 22px; height: 22px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; flex-shrink: 0;
+}
+.pc-qpq .pc-steps li::before { background: rgba(232,69,106,.2); color: var(--crimson); }
+.pc-ct  .pc-steps li::before { background: rgba(79,142,247,.15); color: var(--accent1); }
+.severity-row { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+.sev-badge {
+  padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase;
+}
+.sev-crit { background: rgba(232,69,106,.2); color: var(--crimson); border: 1px solid rgba(232,69,106,.3); }
+.sev-high { background: rgba(247,168,79,.15); color: var(--warn); border: 1px solid rgba(247,168,79,.25); }
 
-  .node-ai     { border-color: #2d1e5f; box-shadow: 0 0 30px var(--glow2); }
-  .node-ai     .node-title { color: var(--accent2); }
-  .node-ai     .node-tag   { background: rgba(123,90,247,.12); color: var(--accent2); }
+/* ── DB schema ── */
+.db-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+@media(max-width:800px){ .db-grid { grid-template-columns: 1fr; } }
+.db-table {
+  border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+}
+.db-table-header {
+  padding: 12px 16px;
+  background: rgba(79,142,247,.08);
+  border-bottom: 1px solid var(--border);
+  font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
+  color: var(--accent1);
+}
+.db-col {
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(30,39,64,.5);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 10px;
+}
+.db-col:last-child { border-bottom: none; }
+.db-col-name { color: var(--text); }
+.db-col-type { color: var(--muted); }
+.db-col-pk { color: var(--accent3); font-size: 9px; margin-left: 6px; letter-spacing: 1px; }
 
-  .node-valid  { border-color: #1a3d30; box-shadow: 0 0 30px var(--glow3); }
-  .node-valid  .node-title { color: var(--accent3); }
-  .node-valid  .node-tag   { background: rgba(31,209,160,.1); color: var(--accent3); }
+/* ── API table ── */
+.api-table { width: 100%; border-collapse: collapse; }
+.api-table th {
+  text-align: left; padding: 10px 14px;
+  border-bottom: 2px solid var(--border);
+  font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+}
+.api-table td { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 11px; vertical-align: top; }
+.api-table tr:last-child td { border-bottom: none; }
+.api-table tr:hover td { background: var(--surface2); }
+.method-get  { color: var(--accent3); font-weight: 700; }
+.method-post { color: var(--warn); font-weight: 700; }
+.endpoint    { color: var(--accent1); font-family: 'DM Mono', monospace; }
+.api-new     { color: var(--crimson); font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+               background: rgba(232,69,106,.12); padding: 2px 6px; border-radius: 4px; margin-left: 8px; }
 
-  .node-output { border-color: #3d2e10; box-shadow: 0 0 30px rgba(247,168,79,.12); }
-  .node-output .node-title { color: var(--warn); }
-  .node-output .node-tag   { background: rgba(247,168,79,.1); color: var(--warn); }
+/* ── interaction diagram ── */
+.interaction-diagram {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 32px; overflow-x: auto;
+}
+.iflow {
+  display: flex; flex-direction: column; gap: 0; min-width: 600px;
+}
+.irow {
+  display: grid; grid-template-columns: 160px 40px 1fr; align-items: center;
+  padding: 8px 0; gap: 0;
+}
+.irow-from { font-size: 10px; color: var(--accent3); text-align: right; padding-right: 12px; }
+.irow-arrow { text-align: center; color: var(--muted); font-size: 16px; }
+.irow-desc  { font-size: 10px; color: var(--text); padding-left: 12px; border-left: 1px solid var(--border); margin-left: 8px; }
+.irow-muted { color: var(--muted); }
+.irow-sep   { grid-column: 1/-1; border-top: 1px dashed var(--border); margin: 6px 0; }
 
-  /* ---------- layer bands ---------- */
-  .layer-band {
-    grid-column: 1 / -1;
-    display: flex; align-items: center; gap: 12px;
-    padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
-    font-family: 'DM Mono', monospace;
-  }
-  .layer-band::before { content: ''; flex: 1; height: 1px; background: currentColor; opacity: .2; }
-  .layer-band::after  { content: ''; flex: 1; height: 1px; background: currentColor; opacity: .2; }
+/* ── keyword pills ── */
+.kw-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.kw { padding: 4px 10px; border-radius: 20px; font-size: 10px; letter-spacing: .5px; }
+.kw-qpq { background: rgba(232,69,106,.12); color: #f08; border: 1px solid rgba(232,69,106,.2); }
+.kw-ct  { background: rgba(79,142,247,.1); color: var(--accent1); border: 1px solid rgba(79,142,247,.2); }
 
-  .lb-data   { color: var(--accent1); }
-  .lb-ai     { color: var(--accent2); }
-  .lb-valid  { color: var(--accent3); }
-  .lb-output { color: var(--warn); }
+/* ── file tree ── */
+.tree { font-size: 11px; line-height: 2; background: var(--surface); border: 1px solid var(--border);
+        border-radius: 10px; padding: 20px 24px; overflow-x: auto; white-space: nowrap; }
+.tree .t-dir  { color: var(--accent1); }
+.tree .t-file { color: var(--text); }
+.tree .t-new  { color: var(--accent3); }
+.tree .t-note { color: var(--muted); font-size: 10px; }
 
-  /* ---------- flow arrows svg ---------- */
-  .flow-svg {
-    position: absolute; inset: 0;
-    width: 100%; height: 100%;
-    pointer-events: none; overflow: visible;
-    z-index: 2;
-  }
+/* ── animations ── */
+@keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+.card, .pipe-node, .pattern-card, .db-table { animation: fadeUp .45s ease both; }
 
-  /* ---------- step indicators ---------- */
-  .steps {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 16px;
-    margin-top: 64px;
-  }
-  .step {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-    background: var(--surface);
-    transition: border-color .2s;
-  }
-  .step:hover { border-color: var(--accent1); }
-  .step-num {
-    font-family: 'Syne', sans-serif;
-    font-size: 28px; font-weight: 800;
-    background: linear-gradient(135deg, var(--accent1), var(--accent2));
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    line-height: 1;
-  }
-  .step-name { font-size: 11px; color: var(--text); margin-top: 6px; font-weight: 500; }
-  .step-detail { font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
-
-  /* ---------- footer ---------- */
-  footer {
-    text-align: center; margin-top: 64px;
-    font-size: 10px; color: var(--muted); letter-spacing: 2px;
-  }
-
-  /* ---------- animations ---------- */
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .node, .step, .layer-band {
-    animation: fadeUp .5s ease both;
-  }
-  .node:nth-child(1)  { animation-delay: .05s; }
-  .node:nth-child(2)  { animation-delay: .10s; }
-  .node:nth-child(3)  { animation-delay: .15s; }
-  .node:nth-child(4)  { animation-delay: .20s; }
-  .node:nth-child(5)  { animation-delay: .25s; }
-  .node:nth-child(6)  { animation-delay: .30s; }
-  .node:nth-child(7)  { animation-delay: .35s; }
-  .node:nth-child(8)  { animation-delay: .40s; }
-
-  .step:nth-child(1) { animation-delay: .50s; }
-  .step:nth-child(2) { animation-delay: .55s; }
-  .step:nth-child(3) { animation-delay: .60s; }
-  .step:nth-child(4) { animation-delay: .65s; }
-  .step:nth-child(5) { animation-delay: .70s; }
-  .step:nth-child(6) { animation-delay: .75s; }
+/* ── footer ── */
+footer { text-align: center; margin-top: 72px; font-size: 10px; color: var(--muted); letter-spacing: 2px; }
 </style>
 </head>
 <body>
+
+<!-- sticky nav -->
+<nav id="top-nav">
+  <a href="#overview"   class="active">Overview</a>
+  <a href="#components">Components</a>
+  <a href="#pipeline">  Pipeline</a>
+  <a href="#patterns">  Pattern Detection</a>
+  <a href="#storage">   Storage</a>
+  <a href="#api">       API</a>
+  <a href="#interactions">Interactions</a>
+</nav>
+
 <div class="page">
 
+  <!-- ── HEADER ── -->
   <header>
-    <div class="eyebrow">TCS Internal · AI-Powered Compliance</div>
-    <h1>Email Compliance<br/>AI Agent Architecture</h1>
-    <p class="subtitle">Communication Surveillance · Non-Compliance Detection · Priority Scoring</p>
+    <div class="eyebrow">TCS Internal · AI-Powered Compliance · Full System Reference</div>
+    <h1>Email Compliance AI Agent<br/>System Architecture</h1>
+    <p class="subtitle">Communication Surveillance · Non-Compliance Detection · Pattern Analysis · Priority Scoring</p>
   </header>
 
-  <!-- Legend -->
-  <div class="legend">
-    <div class="legend-item"><div class="legend-dot" style="background:#4f8ef7"></div>Data Layer</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#7b5af7"></div>AI Agent Layer</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#1fd1a0"></div>Validation Layer</div>
-    <div class="legend-item"><div class="legend-dot" style="background:#f7a84f"></div>Scoring &amp; Output Layer</div>
-  </div>
+  <!-- ════════════════════════════════════════════════════════
+       SECTION 1 — OVERVIEW
+  ════════════════════════════════════════════════════════ -->
+  <section class="section" id="overview">
+    <div class="section-label">Section 01</div>
+    <div class="section-title">System Overview</div>
+    <p class="section-sub">
+      The Email Compliance AI Agent ingests bank email files (PDF / Excel), runs each email
+      through a multi-stage LangGraph AI pipeline, and then performs cross-email pattern analysis
+      to surface Quid Pro Quo arrangements and Circular Trading schemes that no single email can reveal.
+    </p>
 
-  <!-- Architecture grid -->
-  <div class="arch-container" id="arch">
-
-    <!-- ── Layer 1: Data ── -->
-    <div class="layer-band lb-data">Data Layer</div>
-
-    <div class="node node-data" id="n-source">
-      <div class="node-icon">📧</div>
-      <div class="node-title">Email Source</div>
-      <div class="node-desc">Raw emails from internal mailboxes, SMTP feeds, or uploaded PDF / Excel files.</div>
-      <span class="node-tag">Input</span>
-    </div>
-    <div class="node node-data" id="n-ingest">
-      <div class="node-icon">⚙️</div>
-      <div class="node-title">Ingestion</div>
-      <div class="node-desc">email_reader.py parses PDF &amp; Excel documents, extracts headers and body text.</div>
-      <span class="node-tag">PyMuPDF · pandas</span>
-    </div>
-    <div class="node node-data" id="n-queue">
-      <div class="node-icon">🗂️</div>
-      <div class="node-title">Queue / Batch</div>
-      <div class="node-desc">Emails are batched into a processing list ready for the AI Agent layer.</div>
-      <span class="node-tag">Kafka-ready</span>
-    </div>
-
-    <!-- ── Layer 2: AI Agent ── -->
-    <div class="layer-band lb-ai">AI Agent Layer</div>
-
-    <div class="node node-ai" style="grid-column: 1 / 4;" id="n-agent">
-      <div class="node-icon">🤖</div>
-      <div class="node-title">AI Compliance Agent — LangChain + Azure OpenAI GPT-4o</div>
-      <div class="node-desc">
-        Reads each email, detects sender intent, identifies non-compliant categories
-        (market manipulation, bribery, secrecy, employee ethics, change in communication, complaints),
-        extracts evidence lines, and produces a structured JSON finding with confidence score.
+    <div class="grid4">
+      <div class="card c-blue">
+        <div class="card-icon">📧</div>
+        <div class="card-title">Ingest</div>
+        <div class="card-desc">Parse PDF and Excel email files. Extract headers (From, To, Subject, Date) and body text.</div>
+        <div class="card-file">email_reader.py</div>
       </div>
-      <span class="node-tag">compliance_agent.py · LangChain · AzureChatOpenAI</span>
-    </div>
-
-    <!-- ── Layer 3: Validation ── -->
-    <div class="layer-band lb-valid">Validation Layer</div>
-
-    <div class="node node-valid" id="n-guard" style="grid-column: 1 / 3;">
-      <div class="node-icon">🛡️</div>
-      <div class="node-title">Guardrails Validator</div>
-      <div class="node-desc">
-        Validates AI output: checks required fields, confidence range, valid category IDs,
-        evidence presence, reasoning length, and soft hallucination guard.
+      <div class="card c-purple">
+        <div class="card-icon">🤖</div>
+        <div class="card-title">AI Analysis</div>
+        <div class="card-desc">LangGraph pipeline: thread detection → history retrieval → GPT-4o compliance analysis → guardrails → scoring.</div>
+        <div class="card-file">graph.py · compliance_agent.py</div>
       </div>
-      <span class="node-tag">guardrails.py · GuardrailValidator</span>
-    </div>
-    <div class="node node-valid" id="n-verify">
-      <div class="node-icon">🔍</div>
-      <div class="node-title">Verification Pass</div>
-      <div class="node-desc">
-        Second LLM call challenges the initial finding, corrects categories / confidence if needed,
-        and reduces hallucinations.
+      <div class="card c-red">
+        <div class="card-icon">🕸️</div>
+        <div class="card-title">Pattern Detection</div>
+        <div class="card-desc">Post-batch cross-email analysis. Quid Pro Quo (reciprocal exchange) and Circular Trading (graph cycles).</div>
+        <div class="card-file">quid_pro_quo_detector.py · circular_trading_detector.py</div>
+        <span class="tag tag-new">New</span>
       </div>
-      <span class="node-tag">guardrails.py · ComplianceVerifier</span>
-    </div>
-
-    <!-- ── Layer 4: Scoring & Output ── -->
-    <div class="layer-band lb-output">Scoring &amp; Output Layer</div>
-
-    <div class="node node-output" id="n-score">
-      <div class="node-icon">📊</div>
-      <div class="node-title">Scoring Engine</div>
-      <div class="node-desc">
-        Applies category base weights, multipliers (multi-category, high-confidence),
-        normalises to 0–100 priority score and assigns band (CRITICAL / HIGH / MEDIUM / LOW).
+      <div class="card c-amber">
+        <div class="card-icon">🖥️</div>
+        <div class="card-title">Dashboard &amp; API</div>
+        <div class="card-desc">Flask REST API serves the HTML dashboard. Separate /api/patterns endpoint exposes pattern alerts.</div>
+        <div class="card-file">api_server.py · dashboard.html</div>
       </div>
-      <span class="node-tag">scoring_engine.py · compliance_matrix.yaml</span>
     </div>
-    <div class="node node-output" id="n-db">
-      <div class="node-icon">🗄️</div>
-      <div class="node-title">Database / Storage</div>
-      <div class="node-desc">
-        Scored findings persisted to JSON (output/compliance_results.json) for dashboard consumption and audit trail.
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SECTION 2 — COMPONENTS
+  ════════════════════════════════════════════════════════ -->
+  <section class="section" id="components">
+    <div class="section-label">Section 02</div>
+    <div class="section-title">Component Catalog</div>
+    <p class="section-sub">Every module in the codebase, its single responsibility, and what it consumes or produces.</p>
+
+    <!-- Data Layer -->
+    <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--accent1);margin-bottom:12px;">
+      ▸ Data Layer
+    </div>
+    <div class="grid3" style="margin-bottom:28px;">
+      <div class="card c-blue">
+        <div class="card-icon">⚙️</div>
+        <div class="card-title">email_reader.py</div>
+        <div class="card-desc">Reads PDF files with pdfplumber and Excel files with pandas/openpyxl. Normalises rows into email dicts with id, from, to, subject, date, body, source.</div>
+        <div class="card-file">Input: .pdf / .xlsx / .xls · Output: List[Dict]</div>
       </div>
-      <span class="node-tag">storage.py</span>
-    </div>
-    <div class="node node-output" id="n-dash">
-      <div class="node-icon">🖥️</div>
-      <div class="node-title">Dashboard</div>
-      <div class="node-desc">
-        HTML dashboard (dashboard.html) uploads files, triggers analysis via REST API, and displays
-        prioritised compliance findings with evidence and scores.
+      <div class="card c-blue">
+        <div class="card-icon">🔧</div>
+        <div class="card-title">config_loader.py</div>
+        <div class="card-desc">Loads and validates compliance_matrix.yaml. Returns the full config dict used by all downstream modules. Caches after first load.</div>
+        <div class="card-file">Input: config/compliance_matrix.yaml · Output: Dict</div>
       </div>
-      <span class="node-tag">Flask API · dashboard.html</span>
+      <div class="card c-blue">
+        <div class="card-icon">🧵</div>
+        <div class="card-title">thread_detector.py</div>
+        <div class="card-desc">Derives a stable thread_id by hashing normalised subject + sorted participant set. Parses To/From addresses. Detects internal vs external recipients against INTERNAL_DOMAIN.</div>
+        <div class="card-file">Input: email Dict · Output: thread_id, recipients, is_external</div>
+      </div>
     </div>
 
-  </div><!-- /arch-container -->
+    <!-- AI Layer -->
+    <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--accent2);margin-bottom:12px;">
+      ▸ AI Agent Layer
+    </div>
+    <div class="grid3" style="margin-bottom:28px;">
+      <div class="card c-purple">
+        <div class="card-icon">🤖</div>
+        <div class="card-title">compliance_agent.py</div>
+        <div class="card-desc">Builds a dynamic system prompt from compliance_matrix.yaml (all categories + keywords). Invokes Azure OpenAI GPT-4o via LangChain. Returns structured JSON: categories, intent, confidence, evidence, reasoning, is_compliant.</div>
+        <div class="card-file">LLM call 1 of 2 · AzureChatOpenAI</div>
+        <span class="tag tag-ai">GPT-4o</span>
+      </div>
+      <div class="card c-purple">
+        <div class="card-icon">📝</div>
+        <div class="card-title">context_builder.py</div>
+        <div class="card-desc">Replaces prior email bodies in a thread with their cached LLM summaries. Reduces token usage ~62% on 3-email threads. Appends sender risk and anomaly notes when triggered.</div>
+        <div class="card-file">Input: thread_history · Output: extra_context string</div>
+      </div>
+      <div class="card c-purple">
+        <div class="card-icon">🌐</div>
+        <div class="card-title">graph.py</div>
+        <div class="card-desc">Builds and compiles the full LangGraph StateGraph pipeline. Wires all nodes. Also exposes run_cross_pattern_analysis() for post-batch QPQ + Circular Trading detection.</div>
+        <div class="card-file">LangGraph StateGraph · entry point for graph-mode</div>
+        <span class="tag tag-new">+ cross-pattern</span>
+      </div>
+    </div>
 
-  <!-- Processing Steps -->
-  <div class="steps">
-    <div class="step">
-      <div class="step-num">01</div>
-      <div class="step-name">Ingest</div>
-      <div class="step-detail">Read emails from PDF or Excel source files</div>
+    <!-- Validation Layer -->
+    <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--accent3);margin-bottom:12px;">
+      ▸ Validation Layer
     </div>
-    <div class="step">
-      <div class="step-num">02</div>
-      <div class="step-name">Analyse</div>
-      <div class="step-detail">AI Agent detects intent &amp; categories via GPT-4o</div>
+    <div class="grid2" style="margin-bottom:28px;">
+      <div class="card c-green">
+        <div class="card-icon">🛡️</div>
+        <div class="card-title">guardrails.py — GuardrailValidator</div>
+        <div class="card-desc">Rule-based validation of the LLM's JSON output. Checks: required fields present, confidence in [0,1], all category IDs are in VALID_CATEGORIES (now includes circular_trading), minimum evidence lines, minimum reasoning length, soft hallucination guard (evidence fingerprint check against original email text).</div>
+        <div class="card-file">No LLM call · pure rules</div>
+        <span class="tag tag-new">+circular_trading</span>
+      </div>
+      <div class="card c-green">
+        <div class="card-icon">🔍</div>
+        <div class="card-title">guardrails.py — ComplianceVerifier</div>
+        <div class="card-desc">Second LLM call that challenges the initial finding. Provides corrected_categories and corrected_confidence if the finding is wrong. Reduces false positives. Runs only when guardrail check passes; flagged emails skip this step.</div>
+        <div class="card-file">LLM call 2 of 2 · AzureChatOpenAI · max_tokens=400</div>
+        <span class="tag tag-ai">GPT-4o</span>
+      </div>
     </div>
-    <div class="step">
-      <div class="step-num">03</div>
-      <div class="step-name">Validate</div>
-      <div class="step-detail">Guardrails check output quality &amp; completeness</div>
-    </div>
-    <div class="step">
-      <div class="step-num">04</div>
-      <div class="step-name">Verify</div>
-      <div class="step-detail">Second-pass LLM confirms or corrects classification</div>
-    </div>
-    <div class="step">
-      <div class="step-num">05</div>
-      <div class="step-name">Score</div>
-      <div class="step-detail">Priority 0–100 based on configurable matrix</div>
-    </div>
-    <div class="step">
-      <div class="step-num">06</div>
-      <div class="step-name">Store &amp; Alert</div>
-      <div class="step-detail">Persist findings &amp; surface on dashboard</div>
-    </div>
-  </div>
 
-  <footer>EMAIL COMPLIANCE AI AGENT · TCS INTERNAL · POWERED BY AZURE OPENAI</footer>
+    <!-- Intelligence Layer -->
+    <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--warn);margin-bottom:12px;">
+      ▸ Intelligence / Scoring Layer
+    </div>
+    <div class="grid3" style="margin-bottom:28px;">
+      <div class="card c-amber">
+        <div class="card-icon">📊</div>
+        <div class="card-title">scoring_engine.py</div>
+        <div class="card-desc">Computes priority score 0–100: Σ(category base_weights) × multi_category_bonus (if ≥2 cats) × high_confidence_bonus (if conf ≥ 0.8) → normalised. Maps score to band (CRITICAL/HIGH/MEDIUM/LOW) and alert level.</div>
+        <div class="card-file">config: compliance_matrix.yaml scoring section</div>
+      </div>
+      <div class="card c-amber">
+        <div class="card-icon">👤</div>
+        <div class="card-title">sender_risk.py</div>
+        <div class="card-desc">Aggregates a sender's full history from SQLite into a risk score 0–100: violation_rate×50 + avg_confidence×30 + severity_score×20. Produces risk bands CLEAN → HIGH_RISK. HIGH_RISK senders get +10% score boost.</div>
+        <div class="card-file">Input: sender stats from SQLite · No LLM call</div>
+      </div>
+      <div class="card c-amber">
+        <div class="card-icon">📈</div>
+        <div class="card-title">anomaly_detector.py</div>
+        <div class="card-desc">Z-score analysis of a sender's weekly email volume against their historical baseline (needs ≥3 weeks). Flags spikes &gt; 2.0 σ. Appends anomaly note to LLM prompt and tags the scored finding.</div>
+        <div class="card-file">Input: weekly volumes from SQLite · Z-score threshold: 2.0</div>
+      </div>
+    </div>
+
+    <!-- Pattern Detection Layer — NEW -->
+    <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--crimson);margin-bottom:12px;">
+      ▸ Cross-Pattern Detection Layer  <span style="font-size:9px;background:rgba(232,69,106,.15);color:var(--crimson);padding:2px 8px;border-radius:4px;margin-left:8px;">NEW</span>
+    </div>
+    <div class="grid2" style="margin-bottom:28px;">
+      <div class="card c-red">
+        <div class="card-icon">🤝</div>
+        <div class="card-title">quid_pro_quo_detector.py</div>
+        <div class="card-desc">
+          Queries historical_llm_response with a self-join to find pairs (A, B) where A flagged B
+          AND B flagged A within a rolling time window. Filters for bribery / market_manipulation /
+          employee_ethics categories. Verifies actual addressing (sender2 in recipients1 and vice-versa).
+          De-duplicates by canonical pair key. No LLM call — pure SQL.
+        </div>
+        <div class="card-file">Input: history.db · Output: List[QPQ alert dicts]</div>
+        <span class="tag tag-new">New</span>
+        <span class="tag tag-det">SQL-only</span>
+      </div>
+      <div class="card c-red">
+        <div class="card-icon">🔄</div>
+        <div class="card-title">circular_trading_detector.py</div>
+        <div class="card-desc">
+          Loads flagged edges from recipient_network (market_manipulation or circular_trading).
+          Builds a directed adjacency graph. DFS cycle detection with lexicographic canonicalisation
+          (start = minimum node) finds all unique cycles of length 3–6.
+          Returns cycle alerts with participant list, description, and severity.
+          No LLM call — pure graph algorithm.
+        </div>
+        <div class="card-file">Input: history.db · Output: List[cycle alert dicts]</div>
+        <span class="tag tag-new">New</span>
+        <span class="tag tag-det">Graph DFS</span>
+      </div>
+    </div>
+
+    <!-- Storage Layer -->
+    <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--accent1);margin-bottom:12px;">
+      ▸ Storage Layer
+    </div>
+    <div class="grid2" style="margin-bottom:28px;">
+      <div class="card c-blue">
+        <div class="card-icon">🗄️</div>
+        <div class="card-title">history_store.py</div>
+        <div class="card-desc">Dual-backend persistence: SQLite for exact structured queries (thread history, sender stats, recipient network, weekly volumes) and ChromaDB for semantic vector search. Every scored finding is written to both.</div>
+        <div class="card-file">result/history.db + result/chroma/</div>
+        <span class="tag tag-db">SQLite + ChromaDB</span>
+      </div>
+      <div class="card c-blue">
+        <div class="card-icon">📁</div>
+        <div class="card-title">storage.py</div>
+        <div class="card-desc">Saves the final scored findings list to a timestamped JSON file in result/ and maintains a result/latest.json symlink. Used by the dashboard to load results without knowing the exact filename.</div>
+        <div class="card-file">result/compliance_&lt;timestamp&gt;.json + latest.json</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SECTION 3 — PIPELINE
+  ════════════════════════════════════════════════════════ -->
+  <section class="section" id="pipeline">
+    <div class="section-label">Section 03</div>
+    <div class="section-title">LangGraph Pipeline</div>
+    <p class="section-sub">
+      Each email passes through a stateful LangGraph pipeline. Nodes share a typed <code>ComplianceState</code> dict.
+      After the full batch completes, cross-pattern analysis runs once against the accumulated SQLite history.
+    </p>
+
+    <div class="pipeline">
+
+      <div class="pipe-node">
+        <div class="pipe-step">01</div>
+        <div>
+          <div class="pipe-name">detect_thread <span class="pipe-badge badge-rule">rule</span></div>
+          <div class="pipe-file">thread_detector.py</div>
+        </div>
+        <div class="pipe-detail">
+          Hashes normalised subject + sorted participant set → stable <code>thread_id</code>.
+          Parses To/From fields for recipient list. Checks INTERNAL_DOMAIN to flag external emails.
+          Writes: <code>thread_id</code>, <code>recipients</code>, <code>is_external</code>.
+        </div>
+      </div>
+
+      <div class="pipe-node">
+        <div class="pipe-step">02</div>
+        <div>
+          <div class="pipe-name">retrieve_history <span class="pipe-badge badge-sql">sql</span></div>
+          <div class="pipe-file">history_store.py · sender_risk.py · anomaly_detector.py</div>
+        </div>
+        <div class="pipe-detail">
+          Loads all prior findings for this thread from SQLite.
+          Fetches sender stats → computes <code>sender_risk</code> (0–100, CLEAN→HIGH_RISK).
+          Fetches weekly volume history → Z-score <code>volume_anomaly</code> check.
+          Writes: <code>thread_history</code>, <code>sender_risk</code>, <code>volume_anomaly</code>.
+        </div>
+      </div>
+
+      <div class="pipe-node">
+        <div class="pipe-step">03</div>
+        <div>
+          <div class="pipe-name">build_context <span class="pipe-badge badge-rule">rule</span></div>
+          <div class="pipe-file">context_builder.py</div>
+        </div>
+        <div class="pipe-detail">
+          Summarises prior thread emails into a compact context block (saves ~62% tokens on long threads).
+          Appends <em>SENDER RISK PROFILE</em> note if risk_score ≥ 40.
+          Appends <em>COMMUNICATION ANOMALY</em> note if volume spike detected.
+          Writes: <code>extra_context</code>.
+        </div>
+      </div>
+
+      <div class="pipe-node">
+        <div class="pipe-step">04</div>
+        <div>
+          <div class="pipe-name">compliance_agent <span class="pipe-badge badge-llm">llm 1</span></div>
+          <div class="pipe-file">compliance_agent.py · compliance_matrix.yaml</div>
+        </div>
+        <div class="pipe-detail">
+          Sends system prompt (all 7 categories + keywords, dynamically built from YAML) + extra_context + email to GPT-4o.
+          Returns JSON: <code>categories</code>, <code>intent</code>, <code>confidence</code>, <code>evidence</code>, <code>reasoning</code>, <code>is_compliant</code>.
+          System prompt auto-caches when ≥ 1024 tokens (Azure OpenAI prefix caching).
+        </div>
+      </div>
+
+      <div class="pipe-node">
+        <div class="pipe-step">05</div>
+        <div>
+          <div class="pipe-name">guardrail_check <span class="pipe-badge badge-rule">rule</span></div>
+          <div class="pipe-file">guardrails.py — GuardrailValidator</div>
+        </div>
+        <div class="pipe-detail">
+          Validates LLM output: required fields, confidence in [0,1], only valid category IDs
+          (market_manipulation, bribery, secrecy, employee_ethics, change_in_communication, complaints, <strong>circular_trading</strong>),
+          minimum evidence lines, minimum reasoning length, soft hallucination fingerprint check.
+          Routes to <strong>verify</strong> (pass) or <strong>flag_review</strong> (fail).
+        </div>
+      </div>
+
+      <div class="branch-row">
+        <div class="branch-card branch-pass">
+          <div class="b-label">PASS path</div>
+          <div class="b-name">verify <span class="pipe-badge badge-llm">llm 2</span></div>
+          <div class="b-desc">Second GPT-4o call challenges the initial finding. Returns confirmed=true/false plus corrected_categories and corrected_confidence if wrong. Reduces false positives.</div>
+        </div>
+        <div class="branch-card branch-fail">
+          <div class="b-label">FAIL path</div>
+          <div class="b-name">flag_review</div>
+          <div class="b-desc">Marks the finding as REVIEW_REQUIRED with alert_level=HIGH. Skips the second LLM call. Guardrail issues stored in finding for manual review.</div>
+        </div>
+      </div>
+
+      <div class="pipe-node">
+        <div class="pipe-step">06</div>
+        <div>
+          <div class="pipe-name">score <span class="pipe-badge badge-rule">rule</span></div>
+          <div class="pipe-file">scoring_engine.py · compliance_matrix.yaml</div>
+        </div>
+        <div class="pipe-detail">
+          Σ(base_weight per category) × multi_category_bonus (if ≥2 cats, ×1.20) × high_confidence_bonus (if conf ≥ 0.8, ×1.15) → normalised to 0–100.
+          Band: CRITICAL ≥80, HIGH ≥60, MEDIUM ≥40, LOW ≥0.
+          HIGH_RISK senders get +10% boost. Volume anomaly flag is added to finding.
+        </div>
+      </div>
+
+      <div class="pipe-node">
+        <div class="pipe-step">07</div>
+        <div>
+          <div class="pipe-name">persist <span class="pipe-badge badge-sql">sql</span></div>
+          <div class="pipe-file">history_store.py · storage.py</div>
+        </div>
+        <div class="pipe-detail">
+          Writes to SQLite: <code>historical_llm_response</code> (full finding), <code>recipient_network</code> (sender→each recipient, flagged_count++), <code>sender_weekly_volume</code> (ISO week count).
+          Upserts to ChromaDB for semantic search.
+          Saves timestamped JSON to result/.
+        </div>
+      </div>
+
+      <div class="pipe-node" style="background:rgba(232,69,106,.05);border-top:2px solid rgba(232,69,106,.3);">
+        <div class="pipe-step" style="background:linear-gradient(135deg,var(--crimson),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">08</div>
+        <div>
+          <div class="pipe-name" style="color:var(--crimson);">cross_pattern_analysis <span class="pipe-badge badge-new">new</span></div>
+          <div class="pipe-file">quid_pro_quo_detector.py · circular_trading_detector.py</div>
+        </div>
+        <div class="pipe-detail">
+          Runs <strong>once after the entire batch</strong> (not per-email). Queries the now-populated SQLite DB.
+          QPQ detector: SQL self-join to find reciprocal flagged pairs.
+          Circular trading detector: builds recipient_network graph, runs DFS cycle detection.
+          Results printed to console + returned via <code>GET /api/patterns</code>.
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SECTION 4 — PATTERN DETECTION
+  ════════════════════════════════════════════════════════ -->
+  <section class="section" id="patterns">
+    <div class="section-label">Section 04</div>
+    <div class="section-title">Cross-Pattern Detection</div>
+    <p class="section-sub">
+      Two detectors run after the batch completes, querying the history database to surface
+      multi-email, multi-party schemes that individual email analysis cannot see.
+    </p>
+
+    <div class="pattern-grid">
+
+      <!-- QPQ -->
+      <div class="pattern-card pc-qpq">
+        <div class="pc-icon">🤝</div>
+        <div class="pc-title">Quid Pro Quo</div>
+        <div class="pc-desc">
+          Detects reciprocal-favour arrangements across separate email threads:
+          Party A sends a flagged email to Party B, <em>and</em> Party B independently
+          sends a flagged email to Party A — within a configurable time window.
+        </div>
+        <ol class="pc-steps">
+          <li data-n="1">Query <code>historical_llm_response</code> for all non-compliant findings within <code>days_window</code> (default 30 days)</li>
+          <li data-n="2">Self-join: find pairs where email1.sender → email2.sender and email2.sender → email1.sender</li>
+          <li data-n="3">Filter: both emails must involve bribery, market_manipulation, or employee_ethics</li>
+          <li data-n="4">Verify actual addressing: sender2 must appear in recipients1 JSON array, and vice versa</li>
+          <li data-n="5">De-duplicate by canonical pair key; set severity based on average confidence</li>
+        </ol>
+        <div class="severity-row">
+          <div class="sev-badge sev-crit">CRITICAL — avg conf ≥ 0.80</div>
+          <div class="sev-badge sev-high">HIGH — avg conf &lt; 0.80</div>
+        </div>
+        <div class="kw-list">
+          <span class="kw kw-qpq">in return for</span>
+          <span class="kw kw-qpq">as a favor</span>
+          <span class="kw kw-qpq">once you arrange</span>
+          <span class="kw kw-qpq">our understanding</span>
+          <span class="kw kw-qpq">scratch your back</span>
+          <span class="kw kw-qpq">reciprocate</span>
+          <span class="kw kw-qpq">mutual arrangement</span>
+          <span class="kw kw-qpq">you take care of</span>
+          <span class="kw kw-qpq">our deal stands</span>
+          <span class="kw kw-qpq">quid pro quo</span>
+        </div>
+      </div>
+
+      <!-- Circular Trading -->
+      <div class="pattern-card pc-ct">
+        <div class="pc-icon">🔄</div>
+        <div class="pc-title">Circular Trading</div>
+        <div class="pc-desc">
+          Detects coordinated round-trip communication cycles in the recipient network:
+          A → B → C → A where all edges carry market-manipulation or circular-trading
+          flagged emails — the communication signature of wash trading.
+        </div>
+        <ol class="pc-steps">
+          <li data-n="1">Query <code>recipient_network</code> for edges where <code>flagged_count ≥ min_flagged</code> (default 1)</li>
+          <li data-n="2">Verify each edge has a <code>historical_llm_response</code> record flagged for market_manipulation or circular_trading</li>
+          <li data-n="3">Build a directed adjacency graph: <code>{ sender: {recipients, …} }</code></li>
+          <li data-n="4">DFS cycle detection from each node in lexicographic order (start = minimum node avoids duplicates)</li>
+          <li data-n="5">Return unique canonical cycles of length 3–6 with severity and description</li>
+        </ol>
+        <div class="severity-row">
+          <div class="sev-badge sev-crit">CRITICAL — cycle length 3–4</div>
+          <div class="sev-badge sev-high">HIGH — cycle length 5–6</div>
+        </div>
+        <div class="kw-list">
+          <span class="kw kw-ct">round trip</span>
+          <span class="kw kw-ct">wash trade</span>
+          <span class="kw kw-ct">mirror trade</span>
+          <span class="kw kw-ct">prearranged</span>
+          <span class="kw kw-ct">paint the tape</span>
+          <span class="kw kw-ct">synchronized buy</span>
+          <span class="kw kw-ct">you buy we sell</span>
+          <span class="kw kw-ct">inflate volume</span>
+          <span class="kw kw-ct">circular trade</span>
+          <span class="kw kw-ct">coordinate positions</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SECTION 5 — STORAGE
+  ════════════════════════════════════════════════════════ -->
+  <section class="section" id="storage">
+    <div class="section-label">Section 05</div>
+    <div class="section-title">Storage Layer</div>
+    <p class="section-sub">
+      All findings are persisted to two backends — SQLite for exact relational queries
+      and ChromaDB for semantic similarity search. The three SQLite tables are the
+      foundation of all cross-pattern detection.
+    </p>
+
+    <div class="db-grid">
+
+      <div class="db-table">
+        <div class="db-table-header">📋 historical_llm_response</div>
+        <div class="db-col"><span class="db-col-name">id</span><span class="db-col-type">TEXT<span class="db-col-pk">PK</span></span></div>
+        <div class="db-col"><span class="db-col-name">thread_id</span><span class="db-col-type">TEXT</span></div>
+        <div class="db-col"><span class="db-col-name">sender</span><span class="db-col-type">TEXT</span></div>
+        <div class="db-col"><span class="db-col-name">recipients</span><span class="db-col-type">JSON array</span></div>
+        <div class="db-col"><span class="db-col-name">subject</span><span class="db-col-type">TEXT</span></div>
+        <div class="db-col"><span class="db-col-name">date</span><span class="db-col-type">TEXT</span></div>
+        <div class="db-col"><span class="db-col-name">is_external</span><span class="db-col-type">INT 0/1</span></div>
+        <div class="db-col"><span class="db-col-name">categories</span><span class="db-col-type">JSON array</span></div>
+        <div class="db-col"><span class="db-col-name">confidence</span><span class="db-col-type">REAL</span></div>
+        <div class="db-col"><span class="db-col-name">intent</span><span class="db-col-type">TEXT</span></div>
+        <div class="db-col"><span class="db-col-name">reasoning</span><span class="db-col-type">TEXT</span></div>
+        <div class="db-col"><span class="db-col-name">evidence</span><span class="db-col-type">JSON array</span></div>
+        <div class="db-col"><span class="db-col-name">is_compliant</span><span class="db-col-type">INT 0/1</span></div>
+        <div class="db-col"><span class="db-col-name">priority_score</span><span class="db-col-type">INT</span></div>
+        <div class="db-col"><span class="db-col-name">priority_band</span><span class="db-col-type">TEXT</span></div>
+        <div class="db-col"><span class="db-col-name">alert_level</span><span class="db-col-type">TEXT</span></div>
+        <div class="db-col"><span class="db-col-name">created_at</span><span class="db-col-type">TEXT (ISO)</span></div>
+        <div style="padding:10px 16px;font-size:10px;color:var(--accent3);">Used by: QPQ detector, thread history, sender risk, context builder</div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-table-header">🕸️ recipient_network</div>
+        <div class="db-col"><span class="db-col-name">sender</span><span class="db-col-type">TEXT<span class="db-col-pk">PK</span></span></div>
+        <div class="db-col"><span class="db-col-name">recipient</span><span class="db-col-type">TEXT<span class="db-col-pk">PK</span></span></div>
+        <div class="db-col"><span class="db-col-name">email_count</span><span class="db-col-type">INT</span></div>
+        <div class="db-col"><span class="db-col-name">flagged_count</span><span class="db-col-type">INT</span></div>
+        <div class="db-col"><span class="db-col-name">first_seen</span><span class="db-col-type">TEXT (ISO)</span></div>
+        <div class="db-col"><span class="db-col-name">last_seen</span><span class="db-col-type">TEXT (ISO)</span></div>
+        <div style="padding:10px 16px;font-size:10px;color:var(--accent3);">Used by: Circular trading detector (graph edges), external recipient bonus</div>
+        <div style="padding:4px 16px 10px;font-size:10px;color:var(--muted);">Upserted on every email: email_count+1, flagged_count+1 if non-compliant</div>
+      </div>
+
+      <div class="db-table">
+        <div class="db-table-header">📅 sender_weekly_volume</div>
+        <div class="db-col"><span class="db-col-name">sender</span><span class="db-col-type">TEXT<span class="db-col-pk">PK</span></span></div>
+        <div class="db-col"><span class="db-col-name">week</span><span class="db-col-type">TEXT (ISO-WW)<span class="db-col-pk">PK</span></span></div>
+        <div class="db-col"><span class="db-col-name">email_count</span><span class="db-col-type">INT</span></div>
+        <div style="padding:10px 16px;font-size:10px;color:var(--accent3);">Used by: Volume anomaly detector (Z-score baseline)</div>
+        <div style="padding:4px 16px 10px;font-size:10px;color:var(--muted);">Needs ≥ 3 weeks of history for Z-score to fire. Upserted every email processed.</div>
+      </div>
+
+    </div>
+
+    <div class="card c-purple" style="margin-top:20px;">
+      <div class="card-icon">🔮</div>
+      <div class="card-title">ChromaDB — Semantic Vector Search</div>
+      <div class="card-desc">
+        Each finding is embedded (subject + reasoning + evidence) and stored in the <code>email_compliance</code> collection with cosine similarity.
+        Enables free-text similarity search: <em>"find past violations similar to coordinated buy at 3pm"</em>.
+        ChromaDB is optional — pipeline continues using only SQLite if not installed.
+        Query via <code>HistoryStore.semantic_search(query_text, n_results=5)</code>.
+      </div>
+      <div class="card-file">result/chroma/ · pip install chromadb</div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SECTION 6 — API
+  ════════════════════════════════════════════════════════ -->
+  <section class="section" id="api">
+    <div class="section-label">Section 06</div>
+    <div class="section-title">REST API Reference</div>
+    <p class="section-sub">
+      Flask server started with <code>python main.py --server</code> (default port 5050).
+      All endpoints are under <code>http://localhost:5050/</code>.
+    </p>
+
+    <div class="interaction-diagram">
+      <table class="api-table">
+        <thead>
+          <tr>
+            <th>Method</th>
+            <th>Endpoint</th>
+            <th>Description</th>
+            <th>Source module</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="method-get">GET</span></td>
+            <td class="endpoint">/</td>
+            <td>Serve the main compliance dashboard (dashboard.html)</td>
+            <td>api_server.py</td>
+          </tr>
+          <tr>
+            <td><span class="method-get">GET</span></td>
+            <td class="endpoint">/architecture</td>
+            <td>Serve this architecture page</td>
+            <td>api_server.py</td>
+          </tr>
+          <tr>
+            <td><span class="method-get">GET</span></td>
+            <td class="endpoint">/api/health</td>
+            <td>Health check — returns status, dirs, server time</td>
+            <td>api_server.py</td>
+          </tr>
+          <tr>
+            <td><span class="method-post">POST</span></td>
+            <td class="endpoint">/api/analyse</td>
+            <td>Upload PDF/Excel files (field: <code>files</code>) → run full compliance pipeline → return findings JSON</td>
+            <td>api_server.py → compliance pipeline</td>
+          </tr>
+          <tr>
+            <td><span class="method-get">GET</span></td>
+            <td class="endpoint">/api/results</td>
+            <td>Return the most recent result run from <code>result/latest.json</code></td>
+            <td>api_server.py → storage.py</td>
+          </tr>
+          <tr>
+            <td><span class="method-get">GET</span></td>
+            <td class="endpoint">/api/results/list</td>
+            <td>List all past result filenames in result/</td>
+            <td>api_server.py → storage.py</td>
+          </tr>
+          <tr>
+            <td><span class="method-get">GET</span></td>
+            <td class="endpoint">/api/results/&lt;filename&gt;</td>
+            <td>Load a specific result JSON by filename</td>
+            <td>api_server.py → storage.py</td>
+          </tr>
+          <tr>
+            <td><span class="method-get">GET</span></td>
+            <td class="endpoint">/api/patterns<span class="api-new">new</span></td>
+            <td>
+              Run QPQ + Circular Trading detectors against history.db and return alerts JSON.<br/>
+              <span style="color:var(--muted);font-size:10px;">
+                Query params: <code>qpq_days</code> (default 30) · <code>ct_min_flagged</code> (default 1) · <code>ct_max_cycle</code> (default 6)
+              </span>
+            </td>
+            <td>api_server.py → quid_pro_quo_detector.py + circular_trading_detector.py</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════
+       SECTION 7 — INTERACTIONS
+  ════════════════════════════════════════════════════════ -->
+  <section class="section" id="interactions">
+    <div class="section-label">Section 07</div>
+    <div class="section-title">Component Interactions</div>
+    <p class="section-sub">
+      How modules communicate during a single batch run — data flow from ingestion through
+      per-email analysis to post-batch pattern detection.
+    </p>
+
+    <div class="interaction-diagram">
+      <div class="iflow">
+
+        <div class="irow">
+          <div class="irow-from">main.py</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>email_reader.py</strong> — parse PDF/Excel files into List[email Dict]</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from">main.py</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>config_loader.py</strong> — load compliance_matrix.yaml (categories, weights, thresholds)</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from">main.py</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>HistoryStore()</strong> — open history.db + chroma (created if not exists)</div>
+        </div>
+
+        <div class="irow"><div class="irow-sep"></div></div>
+        <div class="irow"><div style="grid-column:1/-1;font-size:10px;color:var(--accent2);letter-spacing:2px;text-transform:uppercase;padding:4px 0;">— per-email loop —</div></div>
+
+        <div class="irow">
+          <div class="irow-from">main.py</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>ComplianceAgent.analyse(email)</strong> — LLM call 1: builds prompt from config → invokes GPT-4o → returns finding JSON</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from">compliance_agent</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>config_loader (categories)</strong> — system prompt dynamically lists all 7 categories with descriptions + keywords</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from">main.py</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>GuardrailValidator.validate(finding, email)</strong> — rule checks: fields, confidence, valid cats (incl. circular_trading), evidence, reasoning</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from">main.py</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>ComplianceVerifier.verify(finding, email)</strong> — LLM call 2: challenge / confirm the finding</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from">main.py</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>ScoringEngine.score(finding)</strong> — apply weights + multipliers from compliance_matrix.yaml → priority_score 0–100 + band</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from">main.py</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>thread_detector.detect_thread(email)</strong> + <strong>extract_recipients</strong> + <strong>is_external_recipient</strong></div>
+        </div>
+        <div class="irow">
+          <div class="irow-from">main.py</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>HistoryStore.save_finding(finding, thread_id, recipients, is_external)</strong> — writes to all 3 SQLite tables + ChromaDB</div>
+        </div>
+
+        <div class="irow">
+          <div class="irow-from" style="color:var(--accent1);">history_store</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>historical_llm_response</strong> — upsert full finding (INSERT OR REPLACE)</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from" style="color:var(--accent1);">history_store</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>recipient_network</strong> — upsert each sender→recipient pair (email_count+1, flagged_count+1 if non-compliant)</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from" style="color:var(--accent1);">history_store</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>sender_weekly_volume</strong> — upsert current ISO week count (email_count+1)</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from" style="color:var(--accent1);">history_store</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>ChromaDB</strong> — upsert embedded document (subject + reasoning + evidence) for semantic search</div>
+        </div>
+
+        <div class="irow"><div class="irow-sep"></div></div>
+        <div class="irow"><div style="grid-column:1/-1;font-size:10px;color:var(--crimson);letter-spacing:2px;text-transform:uppercase;padding:4px 0;">— post-batch cross-pattern analysis (NEW) —</div></div>
+
+        <div class="irow">
+          <div class="irow-from" style="color:var(--crimson);">main.py</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>detect_quid_pro_quo(db_path)</strong> — SQL self-join on historical_llm_response → QPQ alert list</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from" style="color:var(--crimson);">qpq_detector</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>historical_llm_response</strong> — SELECT non-compliant findings within window, join on sender ↔ recipient cross</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from" style="color:var(--crimson);">main.py</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>detect_circular_trading(db_path)</strong> — recipient_network graph → DFS cycle detection → cycle alert list</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from" style="color:var(--crimson);">ct_detector</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>recipient_network</strong> JOIN <strong>historical_llm_response</strong> — flagged edges → directed graph → DFS → unique cycles</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from" style="color:var(--crimson);">main.py</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>console output</strong> — CROSS-PATTERN ANALYSIS section printed after per-email summary</div>
+        </div>
+
+        <div class="irow"><div class="irow-sep"></div></div>
+        <div class="irow"><div style="grid-column:1/-1;font-size:10px;color:var(--warn);letter-spacing:2px;text-transform:uppercase;padding:4px 0;">— api server path —</div></div>
+
+        <div class="irow">
+          <div class="irow-from" style="color:var(--warn);">api_server.py</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>POST /api/analyse</strong> — saves uploads → runs compliance pipeline → returns findings JSON</div>
+        </div>
+        <div class="irow">
+          <div class="irow-from" style="color:var(--warn);">api_server.py</div>
+          <div class="irow-arrow">→</div>
+          <div class="irow-desc"><strong>GET /api/patterns</strong> (NEW) — calls QPQ + circular trading detectors on history.db → returns combined alerts JSON</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- LangGraph path note -->
+    <div class="card c-purple" style="margin-top:20px;">
+      <div class="card-icon">🌐</div>
+      <div class="card-title">LangGraph Pipeline Path (graph.py)</div>
+      <div class="card-desc">
+        When code calls <code>build_graph()</code> directly (e.g. from custom scripts), the
+        pipeline runs through the full LangGraph StateGraph which additionally executes
+        <code>retrieve_history</code> (sender risk + anomaly detection) and <code>build_context</code>
+        (thread context substitution + risk/anomaly notes) before the LLM call.
+        The <code>run_cross_pattern_analysis(db_path)</code> function in <code>graph.py</code>
+        should be called after all emails are processed through the graph to obtain QPQ and
+        Circular Trading alerts.
+      </div>
+    </div>
+
+  </section>
+
+  <footer>EMAIL COMPLIANCE AI AGENT · TCS INTERNAL · AZURE OPENAI GPT-4o · LANGGRAPH · SQLITE + CHROMADB</footer>
 
 </div>
+
+<script>
+// Highlight active nav link on scroll
+const sections = document.querySelectorAll('section[id], header');
+const links = document.querySelectorAll('nav a');
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('active'));
+      const t = document.querySelector(`nav a[href="#${e.target.id}"]`);
+      if (t) t.classList.add('active');
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('section[id]').forEach(s => obs.observe(s));
+</script>
+
 </body>
 </html>

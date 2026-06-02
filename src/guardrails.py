@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 VALID_CATEGORIES = {
     "market_manipulation", "bribery", "secrecy",
     "employee_ethics", "change_in_communication", "complaints",
+    "circular_trading",
 }
 
 

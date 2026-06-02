@@ -169,6 +169,51 @@ def get_result_by_name(filename):
     return jsonify(data)
 
 
+@app.route("/api/patterns", methods=["GET"])
+def get_cross_patterns():
+    """
+    Run Quid Pro Quo and Circular Trading detectors against the history DB
+    and return the combined alerts as JSON.
+
+    Query params:
+      qpq_days          : int  look-back window for QPQ (default 30)
+      ct_min_flagged    : int  minimum flagged edges for circular trading (default 1)
+      ct_max_cycle      : int  maximum cycle length (default 6)
+    """
+    from src.circular_trading_detector import detect_circular_trading
+    from src.quid_pro_quo_detector import detect_quid_pro_quo
+
+    db_path = str(RESULT_DIR / "history.db")
+    if not (RESULT_DIR / "history.db").exists():
+        return jsonify({
+            "quid_pro_quo":     [],
+            "circular_trading": [],
+            "note": "history.db not found — run the pipeline at least once first.",
+        })
+
+    try:
+        qpq_days       = int(request.args.get("qpq_days",       30))
+        ct_min_flagged = int(request.args.get("ct_min_flagged",  1))
+        ct_max_cycle   = int(request.args.get("ct_max_cycle",    6))
+
+        qpq_alerts = detect_quid_pro_quo(db_path, days_window=qpq_days)
+        ct_alerts  = detect_circular_trading(
+            db_path,
+            min_flagged=ct_min_flagged,
+            max_cycle_length=ct_max_cycle,
+        )
+
+        return jsonify({
+            "quid_pro_quo":              qpq_alerts,
+            "circular_trading":          ct_alerts,
+            "quid_pro_quo_count":        len(qpq_alerts),
+            "circular_trading_count":    len(ct_alerts),
+        })
+    except Exception as exc:
+        logger.error("Cross-pattern analysis error: %s", exc, exc_info=True)
+        return jsonify({"error": str(exc)}), 500
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 def start(port=5050, open_browser=True):
     """Start the Flask server and optionally open the browser."""

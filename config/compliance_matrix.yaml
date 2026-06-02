@@ -26,11 +26,11 @@ categories:
       - "rig the market"
 
   bribery:
-    label: "Market Bribery"
+    label: "Market Bribery / Quid Pro Quo"
     base_weight: 9
     description: >
-      Offering, giving, or accepting bribes, kickbacks, or improper
-      payments to influence financial decisions.
+      Offering, giving, or accepting bribes, kickbacks, improper payments,
+      or reciprocal favours to influence financial decisions.
     keywords:
       - "kickback"
       - "payment for favor"
@@ -38,6 +38,18 @@ categories:
       - "gift in exchange"
       - "bribe"
       - "quid pro quo"
+      - "in return for"
+      - "if you do this for us"
+      - "as a favor"
+      - "once you arrange"
+      - "our understanding"
+      - "scratch your back"
+      - "reciprocate"
+      - "mutual arrangement"
+      - "you take care of"
+      - "I'll make it worth your while"
+      - "our deal stands"
+      - "help us out and we"
 
   secrecy:
     label: "Secrecy / Information Leakage"
@@ -80,6 +92,28 @@ categories:
       - "off channel"
       - "WhatsApp"
       - "signal"
+
+  circular_trading:
+    label: "Circular / Wash Trading Coordination"
+    base_weight: 10
+    description: >
+      Coordinated buy/sell instructions among multiple parties designed
+      to artificially inflate trading volume or create misleading price
+      signals through round-trip or mirror transactions.
+    keywords:
+      - "round trip"
+      - "round-trip trade"
+      - "wash trade"
+      - "mirror trade"
+      - "coordinate our positions"
+      - "synchronized buy"
+      - "synchronized sell"
+      - "you buy we sell"
+      - "prearranged"
+      - "paint the tape"
+      - "inflate volume"
+      - "circular trade"
+      - "we all trade between"
 
   complaints:
     label: "Complaints / Grievances"

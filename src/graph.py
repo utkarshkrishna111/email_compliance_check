@@ -15,11 +15,13 @@ from langgraph.graph import END, StateGraph
 from typing_extensions import TypedDict
 
 from .anomaly_detector import detect_volume_anomaly
+from .circular_trading_detector import detect_circular_trading
 from .compliance_agent import ComplianceAgent
 from .config_loader import load_config
 from .context_builder import build_thread_context
 from .guardrails import ComplianceVerifier, GuardrailValidator
 from .history_store import HistoryStore
+from .quid_pro_quo_detector import detect_quid_pro_quo
 from .scoring_engine import ScoringEngine
 from .sender_risk import compute_risk_profile
 from .storage import ResultsStorage
@@ -240,3 +242,37 @@ def make_initial_state(email: Dict[str, Any]) -> ComplianceState:
         guardrail_issues = [],
         scored_finding   = {},
     )
+
+
+def run_cross_pattern_analysis(
+    db_path: str = "result/history.db",
+    qpq_window_days: int = 30,
+    ct_min_flagged: int = 1,
+    ct_max_cycle_length: int = 6,
+) -> Dict[str, Any]:
+    """
+    Run Quid Pro Quo and Circular Trading detectors against the history DB.
+
+    Call this after a batch of emails has been processed through the graph
+    (so findings are persisted to SQLite via HistoryStore).
+
+    Returns a dict with keys 'quid_pro_quo' and 'circular_trading',
+    each holding a list of alert dicts.
+    """
+    logger.info("Running cross-pattern analysis  db=%s", db_path)
+
+    qpq_alerts = detect_quid_pro_quo(db_path, days_window=qpq_window_days)
+    ct_alerts  = detect_circular_trading(
+        db_path,
+        min_flagged=ct_min_flagged,
+        max_cycle_length=ct_max_cycle_length,
+    )
+
+    logger.info(
+        "Cross-pattern analysis complete  qpq_alerts=%d  circular_trading_alerts=%d",
+        len(qpq_alerts), len(ct_alerts),
+    )
+    return {
+        "quid_pro_quo":      qpq_alerts,
+        "circular_trading":  ct_alerts,
+    }

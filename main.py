@@ -286,12 +286,16 @@ def configure_logging(log_level="INFO", log_dir=None, log_file=None):
 def _run_pipeline(file_paths, result_dir):
     logger = logging.getLogger("main.pipeline")
 
+    from src.circular_trading_detector import detect_circular_trading
     from src.compliance_agent import ComplianceAgent
     from src.config_loader import load_config
     from src.email_reader import load_emails
     from src.guardrails import ComplianceVerifier, GuardrailValidator
+    from src.history_store import HistoryStore
+    from src.quid_pro_quo_detector import detect_quid_pro_quo
     from src.scoring_engine import ScoringEngine
     from src.storage import ResultsStorage
+    from src.thread_detector import detect_thread, extract_recipients, is_external_recipient
 
     logger.info("=" * 60)
     logger.info("  Email Compliance AI Agent  -  Pipeline Start")
@@ -299,6 +303,11 @@ def _run_pipeline(file_paths, result_dir):
 
     config = load_config()
     logger.info("Config loaded: %d categories", len(config.get("categories", {})))
+
+    db_path = str(result_dir / "history.db")
+    chroma_path = str(result_dir / "chroma")
+    history_store = HistoryStore(db_path=db_path, chroma_path=chroma_path)
+    internal_domain = os.environ.get("INTERNAL_DOMAIN", "")
 
     all_emails = []
     for fp in file_paths:
@@ -342,6 +351,12 @@ def _run_pipeline(file_paths, result_dir):
         )
         scored_findings.append(finding)
 
+        # Persist to HistoryStore (SQLite + ChromaDB) for cross-pattern analysis
+        thread_id   = detect_thread(email)
+        recipients  = extract_recipients(email)
+        is_external = is_external_recipient(email, internal_domain)
+        history_store.save_finding(finding, thread_id, recipients, is_external)
+
     storage     = ResultsStorage(str(result_dir))
     run_label   = datetime.now().strftime("%Y%m%d_%H%M%S")
     result_path = storage.save(scored_findings, run_label=run_label)
@@ -374,6 +389,33 @@ def _run_pipeline(file_paths, result_dir):
             print("                 Categories : " + ", ".join(f["categories"]))
         print("                 Score      : " + str(score).rjust(3) + "/100  Alert: " + alert)
         print()
+    print(sep)
+
+    # ── Cross-pattern analysis (Quid Pro Quo + Circular Trading) ─────────────
+    logger.info("Running cross-pattern analysis ...")
+    qpq_alerts = detect_quid_pro_quo(db_path)
+    ct_alerts  = detect_circular_trading(db_path)
+
+    print("\n" + sep)
+    print("  CROSS-PATTERN ANALYSIS")
+    print(sep)
+
+    print("  Quid Pro Quo patterns detected  : " + str(len(qpq_alerts)))
+    for a in qpq_alerts:
+        print("  [" + a["severity"] + "] " + a["party_a"] + " ↔ " + a["party_b"])
+        print("        Email A: " + a["email_a_subject"][:55])
+        print("        Email B: " + a["email_b_subject"][:55])
+        print("        Cats A : " + ", ".join(a["email_a_categories"]))
+        print("        Cats B : " + ", ".join(a["email_b_categories"]))
+        print("        Conf   : " + str(a["avg_confidence"]))
+        print()
+
+    print("  Circular Trading patterns detected: " + str(len(ct_alerts)))
+    for a in ct_alerts:
+        print("  [" + a["severity"] + "] " + a["description"])
+        print("        Participants: " + str(a["cycle_length"]))
+        print()
+
     print(sep)
 
 
