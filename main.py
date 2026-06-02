@@ -125,8 +125,44 @@ def _ensure(pip_name, import_name=None):
         )
         print("  [auto-install] " + pip_name + " installed.")
 
-_ensure("python-dotenv", "dotenv")
-_ensure("pyyaml",         "yaml")
+# Full package list - all required by the application
+# pip_name           import_name (if different from pip_name)
+_REQUIRED_PACKAGES = [
+    ("python-dotenv",   "dotenv"),
+    ("pyyaml",          "yaml"),
+    ("PyMuPDF",         "fitz"),
+    ("pandas",          "pandas"),
+    ("openpyxl",        "openpyxl"),
+    ("langchain",       "langchain"),
+    ("langchain-openai","langchain_openai"),
+    ("langchain-community", "langchain_community"),
+    ("langchain-core",  "langchain_core"),
+    ("openai",          "openai"),
+    ("flask",           "flask"),
+    ("flask-cors",      "flask_cors"),
+    ("tiktoken",        "tiktoken"),
+    ("colorlog",        "colorlog"),
+    ("reportlab",       "reportlab"),
+]
+
+_any_installed = False
+for _pip_name, _import_name in _REQUIRED_PACKAGES:
+    try:
+        __import__(_import_name)
+    except ModuleNotFoundError:
+        if not _any_installed:
+            print("  [auto-install] Installing missing packages into active venv ...")
+            _any_installed = True
+        print("  [auto-install] Installing " + _pip_name + " ...")
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", _pip_name,
+             "--quiet", "--prefer-binary"],
+            stdout=subprocess.DEVNULL,
+        )
+
+if _any_installed:
+    print("  [auto-install] All packages installed. Starting application ...")
+    print()
 
 from dotenv import load_dotenv
 load_dotenv()
