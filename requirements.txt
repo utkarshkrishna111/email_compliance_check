@@ -1,16 +1,19 @@
-openai==1.30.1
-langchain==0.2.5
-langchain-openai==0.1.13
-langchain-community==0.2.5
-langchain-core==0.2.9
-python-dotenv==1.0.1
-pydantic==2.7.4
-PyMuPDF==1.24.5
-openpyxl==3.1.4
-pandas==2.2.2
-flask==3.0.3
-flask-cors==4.0.1
-PyYAML==6.0.1
-tiktoken==0.7.0
-colorlog==6.8.2
-reportlab==4.2.2
+# Email Compliance AI Agent - Python dependencies
+# Verified compatible with Python 3.10 - 3.14 on Windows (binary wheels available)
+#
+# Install:  pip install -r requirements.txt --prefer-binary
+
+python-dotenv>=1.0.1
+pyyaml>=6.0.1
+pymupdf>=1.24.5          # standalone wheel, bundles its own DLLs
+pandas>=2.2.2
+openpyxl>=3.1.4
+openai>=2.26.0
+langchain>=1.0.0
+langchain-openai>=1.1.0
+langchain-core>=1.2.0
+flask>=3.0.3
+flask-cors>=4.0.0
+tiktoken>=0.7.0
+colorlog>=6.8.2
+reportlab>=4.2.2

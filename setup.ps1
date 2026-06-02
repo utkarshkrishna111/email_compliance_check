@@ -202,22 +202,20 @@ if ($LASTEXITCODE -ne 0) {
 #   - reportlab         unpinned (has Windows wheels)
 # ---------------------------------------------------------------------------
 $packages = @(
-    "openai",
-    "langchain",
-    "langchain-openai",
-    "langchain-community",
-    "langchain-core",
-    "python-dotenv",
-    "pydantic",
-    "PyMuPDF",
-    "openpyxl",
-    "pandas",
-    "flask",
-    "flask-cors",
-    "PyYAML",
-    "tiktoken",
-    "colorlog",
-    "reportlab"
+    "python-dotenv>=1.0.1",
+    "pyyaml>=6.0.1",
+    "pymupdf>=1.24.5",
+    "pandas>=2.2.2",
+    "openpyxl>=3.1.4",
+    "openai>=2.26.0",
+    "langchain>=1.0.0",
+    "langchain-openai>=1.1.0",
+    "langchain-core>=1.2.0",
+    "flask>=3.0.3",
+    "flask-cors>=4.0.0",
+    "tiktoken>=0.7.0",
+    "colorlog>=6.8.2",
+    "reportlab>=4.2.2"
 )
 
 $failed = @()
