@@ -6,19 +6,15 @@
 <title>Email Compliance Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
-  :root {
-    --bg:      #080c14; --surface: #0e1525; --card: #111a2e;
-    --border:  #1c2845; --accent1: #4a90f7; --accent2: #7c5cf5;
-    --green:   #23d5a0; --warn: #f5ab45;    --danger: #f55a5a;
-    --text:    #dce6f8; --muted: #5a6a90;   --dim: #9aaccc;
-  }
+  :root{--bg:#080c14;--surface:#0e1525;--card:#111a2e;--border:#1c2845;
+    --accent1:#4a90f7;--accent2:#7c5cf5;--green:#23d5a0;--warn:#f5ab45;
+    --danger:#f55a5a;--text:#dce6f8;--muted:#5a6a90;--dim:#9aaccc}
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh}
   body::before{content:'';position:fixed;inset:0;z-index:0;
     background-image:linear-gradient(rgba(255,255,255,.013) 1px,transparent 1px),
-                     linear-gradient(90deg,rgba(255,255,255,.013) 1px,transparent 1px);
+    linear-gradient(90deg,rgba(255,255,255,.013) 1px,transparent 1px);
     background-size:48px 48px;pointer-events:none}
-
   .shell{position:relative;z-index:1;display:flex;min-height:100vh}
 
   /* sidebar */
@@ -35,31 +31,42 @@
   .nav-link:hover,.nav-link.active{color:var(--text);border-left-color:var(--accent1);background:rgba(74,144,247,.06)}
   .nav-link.active{color:var(--accent1)}
   .nav-link .icon{font-size:14px;width:18px;text-align:center}
-  .sidebar-footer{padding:16px 20px;border-top:1px solid var(--border);font-size:9px;color:var(--muted);line-height:1.8}
-  .status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
-  .dot-green{background:var(--green)} .dot-red{background:var(--danger)} .dot-grey{background:var(--muted)}
+  .sidebar-footer{padding:16px 20px;border-top:1px solid var(--border);font-size:9px;color:var(--muted);line-height:1.9}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle}
+  .dot-green{background:var(--green)}.dot-red{background:var(--danger)}.dot-grey{background:var(--muted)}
+
+  /* server-down banner */
+  .server-banner{display:none;background:rgba(245,90,90,.08);border:1px solid rgba(245,90,90,.3);
+    border-radius:10px;padding:20px 22px;margin-bottom:24px}
+  .server-banner.show{display:block}
+  .sb-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--danger);margin-bottom:10px}
+  .sb-step{font-size:11px;color:var(--dim);line-height:2;padding:10px 14px;
+    background:var(--card);border-radius:7px;border:1px solid var(--border);margin-top:8px}
+  .sb-step code{color:var(--accent1);font-family:'DM Mono',monospace}
+  .sb-retry{margin-top:12px;padding:8px 20px;background:transparent;border:1px solid var(--danger);
+    color:var(--danger);border-radius:7px;cursor:pointer;font-size:11px;font-family:'DM Mono',monospace}
+  .sb-retry:hover{background:rgba(245,90,90,.1)}
 
   /* main */
   .main{flex:1;padding:36px 40px;overflow-y:auto}
-  .page-header{margin-bottom:32px}
-  .page-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--text)}
-  .page-sub{font-size:11px;color:var(--muted);margin-top:6px}
+  .page-title{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--text);margin-bottom:6px}
+  .page-sub{font-size:11px;color:var(--muted);margin-bottom:28px}
 
   /* stats */
-  .stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px;margin-bottom:32px}
+  .stats-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px;margin-bottom:28px}
   .stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;position:relative;overflow:hidden}
   .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--grad)}
-  .stat-card[data-color=blue]{--grad:linear-gradient(90deg,var(--accent1),var(--accent2))}
-  .stat-card[data-color=green]{--grad:linear-gradient(90deg,var(--green),#17a378)}
-  .stat-card[data-color=red]{--grad:linear-gradient(90deg,var(--danger),#c43030)}
-  .stat-card[data-color=warn]{--grad:linear-gradient(90deg,var(--warn),#d98a20)}
+  .stat-card[data-c=blue]{--grad:linear-gradient(90deg,var(--accent1),var(--accent2))}
+  .stat-card[data-c=red]{--grad:linear-gradient(90deg,var(--danger),#c43030)}
+  .stat-card[data-c=warn]{--grad:linear-gradient(90deg,var(--warn),#d98a20)}
+  .stat-card[data-c=green]{--grad:linear-gradient(90deg,var(--green),#17a378)}
   .stat-value{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--text)}
   .stat-label{font-size:10px;color:var(--muted);margin-top:4px;letter-spacing:1px;text-transform:uppercase}
 
   /* section */
-  .section{margin-bottom:32px}
+  .section{margin-bottom:28px}
   .section-title{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--dim);
-    margin-bottom:16px;text-transform:uppercase;letter-spacing:2px;display:flex;align-items:center;gap:10px}
+    margin-bottom:14px;text-transform:uppercase;letter-spacing:2px;display:flex;align-items:center;gap:10px}
   .section-title::after{content:'';flex:1;height:1px;background:var(--border)}
 
   /* upload */
@@ -70,36 +77,31 @@
   .drop-text{font-size:13px;color:var(--dim);margin-bottom:6px}
   .drop-hint{font-size:10px;color:var(--muted)}
   #fileInput{display:none}
-  .file-list{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px}
+  .file-list{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
   .file-chip{display:flex;align-items:center;gap:8px;background:var(--surface);
     border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:11px;color:var(--dim)}
-  .file-chip .rm{cursor:pointer;color:var(--muted);font-size:13px;transition:color .15s}
-  .file-chip .rm:hover{color:var(--danger)}
-
-  .row-btns{display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;align-items:center}
+  .chip-rm{cursor:pointer;color:var(--muted);font-size:13px;transition:color .15s}
+  .chip-rm:hover{color:var(--danger)}
+  .row-btns{display:flex;gap:12px;margin-top:18px;flex-wrap:wrap;align-items:center}
   .btn{padding:11px 28px;border:none;border-radius:8px;font-family:'Syne',sans-serif;
     font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:all .2s}
   .btn-primary{background:linear-gradient(135deg,var(--accent1),var(--accent2));color:#fff}
   .btn-primary:hover{opacity:.9;transform:translateY(-1px)}
-  .btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .btn-primary:disabled{opacity:.35;cursor:not-allowed;transform:none}
   .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--dim)}
   .btn-ghost:hover{border-color:var(--accent1);color:var(--accent1)}
-
-  /* info box */
   .info-box{background:rgba(74,144,247,.06);border:1px solid rgba(74,144,247,.2);
-    border-radius:8px;padding:12px 16px;font-size:10px;color:var(--dim);margin-top:14px;line-height:1.7}
+    border-radius:8px;padding:12px 16px;font-size:10px;color:var(--dim);margin-top:12px;line-height:1.8}
   .info-box strong{color:var(--accent1)}
+  .prog-wrap{height:3px;background:var(--border);border-radius:2px;margin-top:14px;overflow:hidden;display:none}
+  .prog-wrap.active{display:block}
+  .prog-bar{height:100%;background:linear-gradient(90deg,var(--accent1),var(--accent2));width:0%;transition:width .4s}
 
-  /* progress */
-  .progress-wrap{height:3px;background:var(--border);border-radius:2px;margin-top:16px;overflow:hidden;display:none}
-  .progress-wrap.active{display:block}
-  .progress-bar{height:100%;background:linear-gradient(90deg,var(--accent1),var(--accent2));width:0%;transition:width .4s}
-
-  /* history selector */
-  .run-selector{display:flex;align-items:center;gap:10px;margin-bottom:16px}
-  .run-selector select{background:var(--card);border:1px solid var(--border);color:var(--dim);
+  /* run selector */
+  .run-row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .run-row select{background:var(--card);border:1px solid var(--border);color:var(--dim);
     border-radius:6px;padding:7px 12px;font-family:'DM Mono',monospace;font-size:11px;flex:1}
-  .run-selector select:focus{outline:none;border-color:var(--accent1)}
+  .run-row select:focus{outline:none;border-color:var(--accent1)}
 
   /* table */
   .tbl-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border)}
@@ -110,46 +112,39 @@
   tbody tr:last-child{border-bottom:none}
   tbody tr:hover{background:rgba(74,144,247,.04)}
   td{padding:12px 14px;vertical-align:top;color:var(--dim)}
-
   .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:9px;
     font-weight:700;letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
-  .badge-critical{background:rgba(245,90,90,.15);color:var(--danger)}
-  .badge-high{background:rgba(245,90,90,.08);color:#f58a5a}
-  .badge-medium{background:rgba(245,171,69,.1);color:var(--warn)}
-  .badge-low{background:rgba(35,213,160,.1);color:var(--green)}
-  .badge-compliant,.badge-none{background:var(--border);color:var(--muted)}
-
+  .b-critical{background:rgba(245,90,90,.15);color:var(--danger)}
+  .b-high{background:rgba(245,90,90,.08);color:#f58a5a}
+  .b-medium{background:rgba(245,171,69,.1);color:var(--warn)}
+  .b-low,.b-compliant,.b-none{background:var(--border);color:var(--muted)}
   .score-bg{background:var(--border);border-radius:3px;height:6px;margin-top:4px;overflow:hidden}
   .score-fill{height:100%;border-radius:3px;transition:width .8s ease}
-  .cats-cell{max-width:180px}
   .cat-tag{display:inline-block;margin:2px 2px 2px 0;padding:1px 6px;border-radius:3px;
     font-size:8px;background:rgba(124,92,245,.12);color:var(--accent2);white-space:nowrap}
-  .expand-btn{background:none;border:none;color:var(--accent1);cursor:pointer;font-size:10px;padding:0;text-decoration:underline}
-
-  .detail-row{display:none}
-  .detail-row.open{display:table-row}
-  .detail-cell{padding:0 14px 16px;background:rgba(74,144,247,.03)}
-  .detail-inner{border:1px solid var(--border);border-radius:8px;padding:16px;
-    display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:10px}
-  .detail-label{color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;font-size:9px}
-  .detail-content{color:var(--dim);line-height:1.6}
+  .exp-btn{background:none;border:none;color:var(--accent1);cursor:pointer;font-size:10px;padding:0;text-decoration:underline}
+  .det-row{display:none}
+  .det-row.open{display:table-row}
+  .det-cell{padding:0 14px 14px;background:rgba(74,144,247,.03)}
+  .det-inner{border:1px solid var(--border);border-radius:8px;padding:14px;
+    display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:10px}
+  .det-label{color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;font-size:9px}
+  .det-content{color:var(--dim);line-height:1.6}
   .ev-line{padding:4px 8px;margin:3px 0;background:var(--surface);border-radius:4px;
     border-left:2px solid var(--accent2);font-style:italic}
-
-  /* empty state */
-  .empty{text-align:center;padding:60px 20px;color:var(--muted);font-size:12px}
-  .empty .emoji{font-size:40px;margin-bottom:12px}
+  .empty{text-align:center;padding:56px 20px;color:var(--muted);font-size:12px}
+  .empty .emoji{font-size:38px;margin-bottom:10px}
 
   /* toast */
   #toast{position:fixed;bottom:24px;right:24px;z-index:999;padding:12px 20px;border-radius:8px;
     font-size:12px;color:#fff;background:#1a2540;border:1px solid var(--border);
-    transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none}
+    transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none;max-width:380px}
   #toast.show{transform:translateY(0);opacity:1}
-  #toast.error{background:rgba(245,90,90,.2);border-color:var(--danger);color:var(--danger)}
-  #toast.success{background:rgba(35,213,160,.12);border-color:var(--green);color:var(--green)}
+  #toast.terror{background:rgba(245,90,90,.2);border-color:var(--danger);color:var(--danger)}
+  #toast.tsuccess{background:rgba(35,213,160,.12);border-color:var(--green);color:var(--green)}
 
   @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-  .result-row{animation:fadeIn .4s ease both}
+  .res-row{animation:fadeIn .4s ease both}
 </style>
 </head>
 <body>
@@ -163,10 +158,10 @@
       <div class="logo-sub">EMAIL SURVEILLANCE</div>
     </div>
     <nav class="nav">
-      <a class="nav-link active" id="nav-upload" onclick="setNav('upload')">
+      <a class="nav-link active" id="nav-upload" onclick="setNav('upload',this)">
         <span class="icon">📤</span> Upload &amp; Analyse
       </a>
-      <a class="nav-link" id="nav-results" onclick="setNav('results')">
+      <a class="nav-link" id="nav-results" onclick="setNav('results',this)">
         <span class="icon">📋</span> Results
       </a>
       <a class="nav-link" href="architecture.html" target="_blank">
@@ -174,9 +169,9 @@
       </a>
     </nav>
     <div class="sidebar-footer">
-      API&nbsp;<span id="apiStatus"><span class="status-dot dot-grey"></span>checking…</span><br/>
-      Server: localhost:5050<br/>
-      Email data: <code>email_data/</code><br/>
+      API&nbsp;<span id="apiStatus"><span class="dot dot-grey"></span>checking...</span><br/>
+      <span style="color:var(--accent1)">localhost:5050</span><br/>
+      Data: <code>email_data/</code><br/>
       Results: <code>result/</code><br/>
       Logs: <code>logs/</code>
     </div>
@@ -184,75 +179,79 @@
 
   <!-- Main -->
   <main class="main">
-    <div class="page-header">
-      <div class="page-title">Email Compliance Dashboard</div>
-      <div class="page-sub">Upload email files to detect non-compliant communications and assign priority scores. Uploaded files are saved to <code>email_data/</code> and results to <code>result/</code>.</div>
+    <div class="page-title">Email Compliance Dashboard</div>
+    <div class="page-sub">Upload email files (PDF or Excel) to detect non-compliant communications and assign priority scores</div>
+
+    <!-- Server-down banner (shown when API unreachable) -->
+    <div class="server-banner" id="serverBanner">
+      <div class="sb-title">⚠ API Server Not Running</div>
+      <p style="font-size:11px;color:var(--dim);margin-bottom:4px">
+        The dashboard cannot connect to the Flask API at <strong>localhost:5050</strong>.<br/>
+        You must start the server before using the dashboard.
+      </p>
+      <div class="sb-step">
+        <strong style="color:var(--text)">Step 1</strong> — Open a PowerShell terminal in your project folder<br/>
+        <strong style="color:var(--text)">Step 2</strong> — Activate your virtual environment:<br/>
+        &nbsp;&nbsp;<code>.\.venv\Scripts\Activate.ps1</code><br/>
+        <strong style="color:var(--text)">Step 3</strong> — Start the server:<br/>
+        &nbsp;&nbsp;<code>python main.py --server</code><br/>
+        <strong style="color:var(--text)">Step 4</strong> — Come back to this page and click Retry
+      </div>
+      <button class="sb-retry" onclick="checkHealth()">↻ Retry Connection</button>
     </div>
 
     <!-- Stats -->
     <div class="stats-row">
-      <div class="stat-card" data-color="blue"><div class="stat-value" id="s-total">—</div><div class="stat-label">Emails Analysed</div></div>
-      <div class="stat-card" data-color="red"><div class="stat-value" id="s-nc">—</div><div class="stat-label">Non-Compliant</div></div>
-      <div class="stat-card" data-color="warn"><div class="stat-value" id="s-crit">—</div><div class="stat-label">Critical / High</div></div>
-      <div class="stat-card" data-color="green"><div class="stat-value" id="s-ok">—</div><div class="stat-label">Compliant</div></div>
+      <div class="stat-card" data-c="blue"><div class="stat-value" id="s-total">—</div><div class="stat-label">Emails Analysed</div></div>
+      <div class="stat-card" data-c="red"><div class="stat-value" id="s-nc">—</div><div class="stat-label">Non-Compliant</div></div>
+      <div class="stat-card" data-c="warn"><div class="stat-value" id="s-crit">—</div><div class="stat-label">Critical / High</div></div>
+      <div class="stat-card" data-c="green"><div class="stat-value" id="s-ok">—</div><div class="stat-label">Compliant</div></div>
     </div>
 
-    <!-- Upload section -->
+    <!-- Upload -->
     <div class="section" id="sec-upload">
       <div class="section-title">Upload Email Files</div>
-
       <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
         <div class="drop-icon">📂</div>
         <div class="drop-text">Drop PDF or Excel files here, or click to browse</div>
         <div class="drop-hint">Supports .pdf · .xlsx · .xls · Multiple files allowed</div>
         <input type="file" id="fileInput" accept=".pdf,.xlsx,.xls,.xlsm" multiple/>
       </div>
-
       <div class="file-list" id="fileList"></div>
-
       <div class="info-box">
         Uploaded files are saved to <strong>email_data/</strong> on the server.<br/>
-        Results are written to <strong>result/compliance_&lt;timestamp&gt;.json</strong> and also available via the Results tab.<br/>
-        You can also drop files directly into <strong>email_data/</strong> and run <code>python main.py --data-dir email_data</code> from CLI.
+        Results are written to <strong>result/compliance_&lt;timestamp&gt;.json</strong> after each run.
       </div>
-
       <div class="row-btns">
         <button class="btn btn-primary" id="analyseBtn" disabled onclick="runAnalysis()">▶ Run Compliance Analysis</button>
         <button class="btn btn-ghost" onclick="clearFiles()">✕ Clear</button>
       </div>
-
-      <div class="progress-wrap" id="progressWrap">
-        <div class="progress-bar" id="progressBar"></div>
-      </div>
+      <div class="prog-wrap" id="progWrap"><div class="prog-bar" id="progBar"></div></div>
     </div>
 
-    <!-- Results section -->
+    <!-- Results -->
     <div class="section" id="sec-results">
       <div class="section-title">Findings</div>
-
-      <div class="run-selector">
+      <div class="run-row">
         <span style="font-size:10px;color:var(--muted);white-space:nowrap">Run:</span>
         <select id="runSelect" onchange="loadRun(this.value)">
-          <option value="">— select a run —</option>
+          <option value="">— select a past run —</option>
         </select>
-        <button class="btn btn-ghost" style="padding:7px 14px;font-size:10px" onclick="refreshRunList()">↻ Refresh</button>
+        <button class="btn-ghost" style="padding:6px 12px;border-radius:6px;border:1px solid var(--border);
+          color:var(--dim);cursor:pointer;font-size:10px;background:transparent" onclick="refreshRuns()">↻</button>
       </div>
-
       <div class="tbl-wrap">
-        <table id="resultsTable">
-          <thead>
-            <tr>
-              <th>#</th><th>Subject</th><th>From</th><th>Categories</th>
-              <th>Confidence</th><th>Priority Score</th><th>Band</th><th>Alert</th><th></th>
-            </tr>
-          </thead>
-          <tbody id="resultsBody">
-            <tr><td colspan="9"><div class="empty"><div class="emoji">📭</div>Upload files and run analysis, or select a past run above</div></td></tr>
+        <table>
+          <thead><tr>
+            <th>#</th><th>Subject</th><th>From</th><th>Categories</th>
+            <th>Confidence</th><th>Score</th><th>Band</th><th>Alert</th><th></th>
+          </tr></thead>
+          <tbody id="tbody">
+            <tr><td colspan="9"><div class="empty"><div class="emoji">📭</div>Upload files and run analysis to see results</div></td></tr>
           </tbody>
         </table>
       </div>
     </div>
-
   </main>
 </div>
 <div id="toast"></div>
@@ -260,43 +259,59 @@
 <script>
 const API = 'http://localhost:5050';
 let selectedFiles = [];
+let serverOnline  = false;
 
-/* ── health ── */
+// ── Health check ───────────────────────────────────────────────────────────
 async function checkHealth() {
   const el = document.getElementById('apiStatus');
+  const banner = document.getElementById('serverBanner');
   try {
-    const r = await fetch(`${API}/api/health`);
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 4000);
+    const r = await fetch(API + '/api/health', { signal: ctrl.signal });
     const d = await r.json();
-    el.innerHTML = d.status === 'ok'
-      ? '<span class="status-dot dot-green"></span>online'
-      : '<span class="status-dot dot-red"></span>error';
-  } catch {
-    el.innerHTML = '<span class="status-dot dot-red"></span>offline';
-  }
+    if (d.status === 'ok') {
+      el.innerHTML = '<span class="dot dot-green"></span>online';
+      banner.classList.remove('show');
+      serverOnline = true;
+      updateAnalyseBtn();
+      return;
+    }
+  } catch(e) { /* fall through */ }
+  el.innerHTML = '<span class="dot dot-red"></span>offline';
+  banner.classList.add('show');
+  serverOnline = false;
+  updateAnalyseBtn();
 }
+
+function updateAnalyseBtn() {
+  document.getElementById('analyseBtn').disabled =
+    selectedFiles.length === 0 || !serverOnline;
+}
+
 checkHealth();
-setInterval(checkHealth, 15000);
+setInterval(checkHealth, 10000);
 
-/* ── nav ── */
-function setNav(name) {
+// ── Nav ────────────────────────────────────────────────────────────────────
+function setNav(name, el) {
   document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-  document.getElementById('nav-' + name)?.classList.add('active');
+  if (el) el.classList.add('active');
 }
 
-/* ── file DnD ── */
-const dropZone = document.getElementById('dropZone');
+// ── File handling ──────────────────────────────────────────────────────────
+const dropZone  = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
-const ALLOWED = ['.pdf','.xlsx','.xls','.xlsm'];
+const ALLOWED   = ['.pdf','.xlsx','.xls','.xlsm'];
 
-dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); addFiles(Array.from(e.dataTransfer.files)); });
-fileInput.addEventListener('change', () => addFiles(Array.from(fileInput.files)));
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop',      e  => { e.preventDefault(); dropZone.classList.remove('dragover'); addFiles(Array.from(e.dataTransfer.files)); });
+fileInput.addEventListener('change',   ()  => addFiles(Array.from(fileInput.files)));
 
 function addFiles(files) {
   files.forEach(f => {
     const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase();
-    if (!ALLOWED.includes(ext)) { toast(`Unsupported: ${f.name}`, 'error'); return; }
+    if (!ALLOWED.includes(ext)) { toast('Unsupported: ' + f.name, 'terror'); return; }
     if (!selectedFiles.find(x => x.name === f.name)) selectedFiles.push(f);
   });
   renderFileList();
@@ -305,49 +320,65 @@ function removeFile(name) { selectedFiles = selectedFiles.filter(f => f.name !==
 function clearFiles()     { selectedFiles = []; fileInput.value = ''; renderFileList(); }
 function renderFileList() {
   document.getElementById('fileList').innerHTML = selectedFiles.map(f =>
-    `<div class="file-chip">${f.name.endsWith('.pdf') ? '📄' : '📊'} ${f.name}
-     <span class="rm" onclick="removeFile('${esc(f.name)}')">✕</span></div>`
+    '<div class="file-chip">' + (f.name.endsWith('.pdf') ? '📄' : '📊') + ' ' + esc(f.name) +
+    ' <span class="chip-rm" onclick="removeFile(\'' + esc(f.name) + '\')">✕</span></div>'
   ).join('');
-  document.getElementById('analyseBtn').disabled = selectedFiles.length === 0;
+  updateAnalyseBtn();
 }
 
-/* ── analysis ── */
+// ── Analysis ───────────────────────────────────────────────────────────────
 async function runAnalysis() {
   if (!selectedFiles.length) return;
+  if (!serverOnline) {
+    toast('Server is offline. Start it with: python main.py --server', 'terror');
+    return;
+  }
+
   const btn = document.getElementById('analyseBtn');
-  btn.disabled = true; btn.textContent = '⏳ Analysing…';
-  const pw = document.getElementById('progressWrap');
-  const pb = document.getElementById('progressBar');
-  pw.classList.add('active'); pb.style.width = '0%';
-  await anim(pb, '30%', 400);
+  btn.disabled = true;
+  btn.textContent = '⏳ Analysing...';
+
+  const pw = document.getElementById('progWrap');
+  const pb = document.getElementById('progBar');
+  pw.classList.add('active');
+  pb.style.width = '0%';
+  await anim(pb, '25%', 300);
 
   const fd = new FormData();
   selectedFiles.forEach(f => fd.append('files', f));
 
   try {
-    await anim(pb, '60%', 600);
-    const res  = await fetch(`${API}/api/analyse`, { method: 'POST', body: fd });
-    await anim(pb, '90%', 300);
+    await anim(pb, '55%', 500);
+    const res  = await fetch(API + '/api/analyse', { method: 'POST', body: fd });
+    await anim(pb, '85%', 300);
     const data = await res.json();
     await anim(pb, '100%', 200);
-    if (!res.ok) throw new Error(data.error || 'API error');
+
+    if (!res.ok) throw new Error(data.error || 'API error ' + res.status);
+
     renderFindings(data.findings);
     updateStats(data.findings);
-    await refreshRunList();
-    toast(`Analysis complete · ${data.total_emails} email(s) processed · saved to result/`, 'success');
+    await refreshRuns();
+    toast('Done! ' + data.total_emails + ' email(s) analysed · results saved to result/', 'tsuccess');
+
   } catch(err) {
-    toast('Error: ' + err.message, 'error');
+    let msg = err.message;
+    if (msg === 'Failed to fetch' || msg.includes('NetworkError') || msg.includes('fetch')) {
+      msg = 'Cannot reach server at localhost:5050. Is "python main.py --server" running?';
+    }
+    toast(msg, 'terror');
   } finally {
     setTimeout(() => { pw.classList.remove('active'); pb.style.width = '0%'; }, 700);
-    btn.disabled = false; btn.textContent = '▶ Run Compliance Analysis';
+    btn.disabled = !serverOnline || selectedFiles.length === 0;
+    btn.textContent = '▶ Run Compliance Analysis';
   }
 }
 
 function anim(el, w, ms) {
-  return new Promise(r => { el.style.transition=`width ${ms}ms ease`; el.style.width=w; setTimeout(r,ms); });
+  return new Promise(r => { el.style.transition = 'width ' + ms + 'ms ease'; el.style.width = w; setTimeout(r, ms); });
 }
 
-/* ── stats ── */
+// ── Stats ──────────────────────────────────────────────────────────────────
 function updateStats(findings) {
   const nc   = findings.filter(f => !f.is_compliant).length;
   const crit = findings.filter(f => ['CRITICAL','HIGH'].includes(f.priority_band)).length;
@@ -357,114 +388,104 @@ function updateStats(findings) {
   document.getElementById('s-ok').textContent    = findings.length - nc;
 }
 
-/* ── run history ── */
-async function refreshRunList() {
+// ── Run history ────────────────────────────────────────────────────────────
+async function refreshRuns() {
   try {
-    const r    = await fetch(`${API}/api/results/list`);
+    const r    = await fetch(API + '/api/results/list');
     const data = await r.json();
     const sel  = document.getElementById('runSelect');
     const prev = sel.value;
-    sel.innerHTML = '<option value="">— select a run —</option>' +
-      (data.runs || []).map(n => `<option value="${n}"${n===prev?' selected':''}>${n}</option>`).join('');
-  } catch { /* server not running */ }
+    sel.innerHTML = '<option value="">— select a past run —</option>' +
+      (data.runs || []).map(n => '<option value="' + n + '"' + (n === prev ? ' selected' : '') + '>' + n + '</option>').join('');
+  } catch { /* server offline */ }
 }
 
 async function loadRun(filename) {
   if (!filename) return;
   try {
-    const r    = await fetch(`${API}/api/results/${filename}`);
+    const r    = await fetch(API + '/api/results/' + filename);
     const data = await r.json();
-    if (data.findings) {
-      renderFindings(data.findings);
-      updateStats(data.findings);
-    }
-  } catch(err) { toast('Failed to load run: ' + err.message, 'error'); }
+    if (data.findings) { renderFindings(data.findings); updateStats(data.findings); }
+  } catch(err) { toast('Could not load run: ' + err.message, 'terror'); }
 }
 
-/* ── table ── */
+// ── Table ──────────────────────────────────────────────────────────────────
 function renderFindings(findings) {
-  const tbody = document.getElementById('resultsBody');
-  if (!findings?.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty"><div class="emoji">✅</div>No findings.</div></td></tr>`;
+  const tbody = document.getElementById('tbody');
+  if (!findings || !findings.length) {
+    tbody.innerHTML = '<tr><td colspan="9"><div class="empty"><div class="emoji">✅</div>No findings.</div></td></tr>';
     return;
   }
-  tbody.innerHTML = findings.map((f,i) => {
+  tbody.innerHTML = findings.map((f, i) => {
     const band  = (f.priority_band || 'LOW').toLowerCase();
     const alert = (f.alert_level  || 'NONE').toLowerCase();
     const score = f.priority_score || 0;
     const col   = score >= 80 ? '#f55a5a' : score >= 60 ? '#f58a5a' : score >= 40 ? '#f5ab45' : '#23d5a0';
-    const cats  = (f.categories||[]).map(c=>`<span class="cat-tag">${c.replace(/_/g,' ')}</span>`).join('');
-    const conf  = ((f.confidence||0)*100).toFixed(0)+'%';
-    return `
-    <tr class="result-row" style="animation-delay:${i*.05}s">
-      <td style="color:var(--muted)">${i+1}</td>
-      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(f.subject)}">${esc(f.subject||'(no subject)')}</td>
-      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.from||'—')}</td>
-      <td class="cats-cell">${cats||'<span style="color:var(--muted)">None</span>'}</td>
-      <td>${conf}</td>
-      <td>
-        <span style="color:${col};font-family:Syne,sans-serif;font-weight:700">${score}</span>
-        <div class="score-bg"><div class="score-fill" style="width:${score}%;background:${col}"></div></div>
-      </td>
-      <td><span class="badge badge-${band}">${f.priority_band||'LOW'}</span></td>
-      <td><span class="badge badge-${alert}">${f.alert_level||'NONE'}</span></td>
-      <td><button class="expand-btn" onclick="toggle(${i})">details</button></td>
-    </tr>
-    <tr class="detail-row" id="dr-${i}">
-      <td class="detail-cell" colspan="9">
-        <div class="detail-inner">
-          <div>
-            <div class="detail-label">Intent</div>
-            <div class="detail-content">${esc(f.intent||'—')}</div>
-            <br/>
-            <div class="detail-label">Reasoning</div>
-            <div class="detail-content">${esc(f.reasoning||'—')}</div>
-            ${f.verification_note?`<br/><div class="detail-label">Verification</div><div class="detail-content">${esc(f.verification_note)}</div>`:''}
-          </div>
-          <div>
-            <div class="detail-label">Evidence Lines</div>
-            <div class="detail-content">
-              ${(f.evidence||[]).length
-                ? f.evidence.map(e=>`<div class="ev-line">${esc(e)}</div>`).join('')
-                : '<span style="color:var(--muted)">None extracted</span>'}
-            </div>
-            <br/>
-            <div class="detail-label">Guardrails</div>
-            <div class="detail-content" style="color:${f.guardrail_passed?'var(--green)':'var(--warn)'}">
-              ${f.guardrail_passed?'✓ Passed':'⚠ Issues: '+(f.guardrail_issues||[]).join(', ')}
-            </div>
-            <br/>
-            <div class="detail-label">Source File</div>
-            <div class="detail-content" style="color:var(--muted)">${esc(f.source||'—')}</div>
-          </div>
-        </div>
-      </td>
-    </tr>`;
+    const cats  = (f.categories || []).map(c => '<span class="cat-tag">' + c.replace(/_/g,' ') + '</span>').join('');
+    const conf  = ((f.confidence || 0) * 100).toFixed(0) + '%';
+    return (
+      '<tr class="res-row" style="animation-delay:' + (i * 0.04) + 's">' +
+        '<td style="color:var(--muted)">' + (i+1) + '</td>' +
+        '<td style="max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + esc(f.subject) + '">' + esc(f.subject || '(no subject)') + '</td>' +
+        '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(f.from || '—') + '</td>' +
+        '<td style="max-width:180px">' + (cats || '<span style="color:var(--muted)">None</span>') + '</td>' +
+        '<td>' + conf + '</td>' +
+        '<td><span style="color:' + col + ';font-family:Syne,sans-serif;font-weight:700">' + score + '</span>' +
+          '<div class="score-bg"><div class="score-fill" style="width:' + score + '%;background:' + col + '"></div></div></td>' +
+        '<td><span class="badge b-' + band + '">' + (f.priority_band || 'LOW') + '</span></td>' +
+        '<td><span class="badge b-' + alert + '">' + (f.alert_level || 'NONE') + '</span></td>' +
+        '<td><button class="exp-btn" onclick="toggle(' + i + ')">details</button></td>' +
+      '</tr>' +
+      '<tr class="det-row" id="dr-' + i + '">' +
+        '<td class="det-cell" colspan="9">' +
+          '<div class="det-inner">' +
+            '<div>' +
+              '<div class="det-label">Intent</div><div class="det-content">' + esc(f.intent || '—') + '</div><br/>' +
+              '<div class="det-label">Reasoning</div><div class="det-content">' + esc(f.reasoning || '—') + '</div>' +
+              (f.verification_note ? '<br/><div class="det-label">Verification</div><div class="det-content">' + esc(f.verification_note) + '</div>' : '') +
+            '</div>' +
+            '<div>' +
+              '<div class="det-label">Evidence Lines</div><div class="det-content">' +
+                ((f.evidence || []).length ? f.evidence.map(e => '<div class="ev-line">' + esc(e) + '</div>').join('') : '<span style="color:var(--muted)">None</span>') +
+              '</div><br/>' +
+              '<div class="det-label">Guardrails</div>' +
+              '<div class="det-content" style="color:' + (f.guardrail_passed ? 'var(--green)' : 'var(--warn)') + '">' +
+                (f.guardrail_passed ? '✓ Passed' : '⚠ ' + (f.guardrail_issues || []).join(', ')) +
+              '</div><br/>' +
+              '<div class="det-label">Source File</div><div class="det-content" style="color:var(--muted)">' + esc(f.source || '—') + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</td>' +
+      '</tr>'
+    );
   }).join('');
 }
 
-function toggle(i) { document.getElementById(`dr-${i}`)?.classList.toggle('open'); }
+function toggle(i) { document.getElementById('dr-' + i).classList.toggle('open'); }
 
 function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-/* ── toast ── */
-function toast(msg, type='') {
+// ── Toast ──────────────────────────────────────────────────────────────────
+function toast(msg, cls) {
   const el = document.getElementById('toast');
-  el.textContent = msg; el.className = 'show ' + type;
-  setTimeout(() => el.className = '', 4000);
+  el.textContent = msg;
+  el.className = 'show ' + (cls || '');
+  setTimeout(() => el.className = '', 5000);
 }
 
-/* ── init ── */
+// ── Init: load latest results if server is up ──────────────────────────────
 (async () => {
-  await refreshRunList();
-  // auto-load latest result
+  await checkHealth();
+  if (!serverOnline) return;
   try {
-    const r = await fetch(`${API}/api/results`);
+    await refreshRuns();
+    const r = await fetch(API + '/api/results');
     if (!r.ok) return;
     const d = await r.json();
-    if (d.findings?.length) { renderFindings(d.findings); updateStats(d.findings); }
+    if (d.findings && d.findings.length) { renderFindings(d.findings); updateStats(d.findings); }
   } catch { /* offline */ }
 })();
 </script>
