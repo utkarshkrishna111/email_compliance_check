@@ -26,22 +26,12 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Prompts
+# System prompt builder
 # ─────────────────────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are a financial compliance expert AI agent specialising in
-email surveillance for banking and financial institutions.
+_CACHE_THRESHOLD = 1024  # Azure OpenAI auto-caches prefixes >= this many tokens
 
-Your task is to analyse email communications and detect any non-compliant behaviour.
-
-Non-compliance categories to detect:
-1. market_manipulation  – attempts to artificially influence prices or markets
-2. bribery              – offering or accepting improper payments / quid pro quo
-3. secrecy              – sharing confidential or non-public information improperly
-4. employee_ethics      – code-of-conduct violations, conflicts of interest
-5. change_in_communication – moving conversation off monitored channels
-6. complaints           – formal or informal regulatory/client complaints
-
+_SYSTEM_TAIL = """
 You MUST respond ONLY with a valid JSON object (no markdown, no preamble):
 {
   "categories": ["<category_id>", ...],
@@ -59,6 +49,55 @@ Rules:
 - reasoning must be at least one clear sentence
 - Do not hallucinate; if unsure lower confidence and explain in reasoning
 """
+
+
+def _build_system_prompt(config: Dict[str, Any]) -> str:
+    """
+    Build the system prompt dynamically from compliance_matrix.yaml.
+
+    Expanding categories in the YAML automatically grows this prompt.
+    Azure OpenAI caches the system-message prefix automatically once it
+    reaches 1024 tokens — no further code change needed at that point.
+    """
+    categories = config.get("categories", {})
+
+    lines = [
+        "You are a financial compliance expert AI agent specialising in",
+        "email surveillance for banking and financial institutions.",
+        "",
+        "Your task is to analyse email communications and detect any non-compliant behaviour.",
+        "",
+        "Non-compliance categories to detect:",
+        "",
+    ]
+
+    for i, (cat_id, cat_cfg) in enumerate(categories.items(), 1):
+        label       = cat_cfg.get("label", cat_id)
+        weight      = cat_cfg.get("base_weight", 5)
+        description = cat_cfg.get("description", "").strip().replace("\n", " ")
+        keywords    = cat_cfg.get("keywords", [])
+
+        lines.append(f"{i}. {cat_id}  —  {label}  (severity: {weight}/10)")
+        if description:
+            lines.append(f"   Description : {description}")
+        if keywords:
+            lines.append(f"   Watch for   : {', '.join(keywords)}")
+        lines.append("")
+
+    prompt = "\n".join(lines) + _SYSTEM_TAIL
+
+    # log approximate token count so it is visible when threshold is crossed
+    approx_tokens = len(prompt) // 4
+    cache_status  = (
+        "ACTIVE — prefix will be cached automatically"
+        if approx_tokens >= _CACHE_THRESHOLD
+        else f"NOT YET — {_CACHE_THRESHOLD - approx_tokens} tokens below the {_CACHE_THRESHOLD}-token threshold"
+    )
+    logger.info(
+        "System prompt built  categories=%d  approx_tokens=%d  cache=%s",
+        len(categories), approx_tokens, cache_status,
+    )
+    return prompt
 
 ANALYSIS_TEMPLATE = """Analyse the following email for compliance violations.
 {context}
@@ -82,8 +121,12 @@ Return your analysis as a JSON object following the schema provided.
 class ComplianceAgent:
     """Wraps an Azure OpenAI LLM to perform compliance analysis on emails."""
 
-    def __init__(self):
+    def __init__(self, config: Dict[str, Any] | None = None):
         logger.debug("Initialising ComplianceAgent …")
+        if config is None:
+            from .config_loader import load_config
+            config = load_config()
+        self._system_prompt = _build_system_prompt(config)
         self._llm = self._build_llm()
         logger.info("ComplianceAgent ready  (deployment=%s)",
                     os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"))
@@ -150,7 +193,7 @@ class ComplianceAgent:
 
     def _invoke(self, user_prompt: str) -> str:
         from langchain_core.messages import HumanMessage, SystemMessage
-        messages = [SystemMessage(content=SYSTEM_PROMPT), HumanMessage(content=user_prompt)]
+        messages = [SystemMessage(content=self._system_prompt), HumanMessage(content=user_prompt)]
         return self._llm.invoke(messages).content
 
     def _parse(self, raw: str, email_id: str) -> Dict[str, Any]:

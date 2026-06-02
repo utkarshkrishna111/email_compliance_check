@@ -189,7 +189,7 @@ def build_graph(
     """
     config         = load_config(config_path)
     store          = HistoryStore(db_path=db_path, chroma_path=chroma_path)
-    agent          = ComplianceAgent()
+    agent          = ComplianceAgent(config)
     validator      = GuardrailValidator(config)
     verifier       = ComplianceVerifier()
     engine         = ScoringEngine(config)
