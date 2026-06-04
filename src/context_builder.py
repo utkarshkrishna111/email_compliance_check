@@ -15,7 +15,9 @@ def build_thread_context(thread_history: List[Dict[str, Any]]) -> str:
     Return a compact context block summarising all prior emails in the thread.
     Returns empty string when there is no history (first email in thread).
     """
+    logger.debug("→ build_thread_context  history_count=%d", len(thread_history))
     if not thread_history:
+        logger.debug("  no prior thread history — returning empty context")
         return ""
 
     lines = ["=== THREAD HISTORY (prior emails — summarised to save tokens) ==="]
@@ -32,5 +34,7 @@ def build_thread_context(thread_history: List[Dict[str, Any]]) -> str:
         )
     lines.append("=== NEW EMAIL (analyse only this) ===")
 
-    logger.debug("Thread context built with %d prior finding(s)", len(thread_history))
-    return "\n".join(lines) + "\n"
+    result = "\n".join(lines) + "\n"
+    logger.debug("  context built: %d prior finding(s)  output_len=%d chars",
+                 len(thread_history), len(result))
+    return result

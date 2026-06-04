@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 VALID_CATEGORIES = {
     "market_manipulation", "bribery", "secrecy",
     "employee_ethics", "change_in_communication", "complaints",
-    "circular_trading",
 }
 
 
@@ -36,6 +35,8 @@ class GuardrailValidator:
         finding: Dict[str, Any],
         original_email: Dict[str, Any],
     ) -> Tuple[bool, List[str]]:
+        logger.debug("→ GuardrailValidator.validate  id=%s  categories=%s",
+                     finding.get("id"), finding.get("categories", []))
         issues: List[str] = []
 
         # required keys
@@ -134,6 +135,9 @@ class ComplianceVerifier:
         finding: Dict[str, Any],
         email: Dict[str, Any],
     ) -> Dict[str, Any]:
+        logger.debug("→ ComplianceVerifier.verify  id=%s  categories=%s  confidence=%.2f",
+                     finding.get("id"), finding.get("categories", []),
+                     float(finding.get("confidence", 0.0)))
         import json
 
         prompt = _VERIFY_PROMPT.format(

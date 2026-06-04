@@ -146,6 +146,7 @@ class HistoryStore:
 
     def get_thread_history(self, thread_id: str) -> List[Dict[str, Any]]:
         """All prior findings for a thread, oldest first."""
+        logger.debug("→ get_thread_history  thread_id=%s", thread_id)
         with self._conn() as conn:
             rows = conn.execute(
                 """
@@ -159,6 +160,7 @@ class HistoryStore:
                 (thread_id,),
             ).fetchall()
 
+        logger.debug("  get_thread_history → %d row(s) found", len(rows))
         return [
             {
                 "id": r[0], "from": r[1], "subject": r[2], "date": r[3],
@@ -175,6 +177,7 @@ class HistoryStore:
         ]
 
     def get_sender_stats(self, sender: str) -> Dict[str, Any]:
+        logger.debug("→ get_sender_stats  sender=%s", sender)
         with self._conn() as conn:
             rows = conn.execute(
                 """
@@ -186,6 +189,7 @@ class HistoryStore:
             ).fetchall()
 
         if not rows:
+            logger.debug("  get_sender_stats → no history for sender")
             return {"sender": sender, "total": 0, "non_compliant": 0,
                     "category_counts": {}, "avg_confidence": 0.0}
 
@@ -197,15 +201,19 @@ class HistoryStore:
             for cat in json.loads(r[0] or "[]"):
                 category_counts[cat] = category_counts.get(cat, 0) + 1
 
-        return {
+        stats = {
             "sender":         sender,
             "total":          total,
             "non_compliant":  non_compliant,
             "avg_confidence": round(avg_conf, 3),
             "category_counts": category_counts,
         }
+        logger.debug("  get_sender_stats → total=%d  non_compliant=%d  avg_conf=%.2f  cats=%s",
+                     total, non_compliant, avg_conf, list(category_counts.keys()))
+        return stats
 
     def get_weekly_volumes(self, sender: str, weeks: int = 8) -> Dict[str, int]:
+        logger.debug("→ get_weekly_volumes  sender=%s  weeks=%d", sender, weeks)
         with self._conn() as conn:
             rows = conn.execute(
                 """
@@ -216,7 +224,9 @@ class HistoryStore:
                 """,
                 (sender, weeks),
             ).fetchall()
-        return {r[0]: r[1] for r in rows}
+        result = {r[0]: r[1] for r in rows}
+        logger.debug("  get_weekly_volumes → %d week(s) of history", len(result))
+        return result
 
     def get_recipient_network(self, sender: str) -> List[Dict[str, Any]]:
         with self._conn() as conn:

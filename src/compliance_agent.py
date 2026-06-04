@@ -177,6 +177,10 @@ class ComplianceAgent:
     # ── private ──────────────────────────────────────────────────────────────
 
     def _build_llm(self):
+        logger.debug("→ _build_llm  endpoint=%s  deployment=%s  api_version=%s",
+                     os.environ.get("AZURE_OPENAI_ENDPOINT", "?"),
+                     os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
+                     os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"))
         try:
             from langchain_openai import AzureChatOpenAI
         except ImportError:
@@ -192,11 +196,16 @@ class ComplianceAgent:
         )
 
     def _invoke(self, user_prompt: str) -> str:
+        logger.debug("→ _invoke  prompt_len=%d chars  system_len=%d chars",
+                     len(user_prompt), len(self._system_prompt))
         from langchain_core.messages import HumanMessage, SystemMessage
         messages = [SystemMessage(content=self._system_prompt), HumanMessage(content=user_prompt)]
-        return self._llm.invoke(messages).content
+        result = self._llm.invoke(messages).content
+        logger.debug("  _invoke complete  response_len=%d chars", len(result))
+        return result
 
     def _parse(self, raw: str, email_id: str) -> Dict[str, Any]:
+        logger.debug("→ _parse  email_id=%s  raw_len=%d", email_id, len(raw))
         try:
             cleaned = raw.strip()
             if cleaned.startswith("```"):

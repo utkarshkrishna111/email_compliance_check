@@ -29,7 +29,8 @@ SUPPORTED_EXTENSIONS = {".pdf", ".xlsx", ".xls", ".xlsm"}
 def load_emails(file_path: str) -> List[Dict[str, Any]]:
     """Detect file type and dispatch to the correct extractor."""
     ext = Path(file_path).suffix.lower()
-    logger.debug("load_emails: '%s' (ext=%s)", file_path, ext)
+    logger.info("→ load_emails  file='%s'  ext=%s", Path(file_path).name, ext)
+    logger.debug("  full path=%s", file_path)
     if ext == ".pdf":
         return _extract_pdf(file_path)
     elif ext in (".xlsx", ".xls", ".xlsm"):
@@ -76,6 +77,7 @@ def load_emails_from_folder(folder: str) -> List[Dict[str, Any]]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _extract_pdf(file_path: str) -> List[Dict[str, Any]]:
+    logger.debug("→ _extract_pdf  path=%s", file_path)
     try:
         import pdfplumber
     except ImportError:
@@ -85,10 +87,11 @@ def _extract_pdf(file_path: str) -> List[Dict[str, Any]]:
         )
 
     with pdfplumber.open(file_path) as pdf:
-        full_text = "\n".join(
-            page.extract_text() or "" for page in pdf.pages
-        )
+        pages = pdf.pages
+        logger.debug("  PDF pages=%d", len(pages))
+        full_text = "\n".join(page.extract_text() or "" for page in pages)
 
+    logger.debug("  extracted text_len=%d chars", len(full_text))
     blocks = _split_on_boundaries(full_text)
     emails: List[Dict[str, Any]] = []
     for idx, block in enumerate(blocks):
@@ -109,6 +112,7 @@ def _extract_pdf(file_path: str) -> List[Dict[str, Any]]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _extract_excel(file_path: str) -> List[Dict[str, Any]]:
+    logger.debug("→ _extract_excel  path=%s", file_path)
     try:
         import pandas as pd
     except ImportError:
@@ -119,6 +123,7 @@ def _extract_excel(file_path: str) -> List[Dict[str, Any]]:
 
     df = pd.read_excel(file_path, engine="openpyxl")
     df.columns = [str(c).strip().lower() for c in df.columns]
+    logger.debug("  Excel rows=%d  columns=%s", len(df), list(df.columns))
 
     col_aliases = {
         "from":    ["from", "sender", "from_address"],

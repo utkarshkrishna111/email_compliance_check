@@ -286,7 +286,6 @@ def configure_logging(log_level="INFO", log_dir=None, log_file=None):
 def _run_pipeline(file_paths, result_dir):
     logger = logging.getLogger("main.pipeline")
 
-    from src.circular_trading_detector import detect_circular_trading
     from src.compliance_agent import ComplianceAgent
     from src.config_loader import load_config
     from src.email_reader import load_emails
@@ -391,10 +390,9 @@ def _run_pipeline(file_paths, result_dir):
         print()
     print(sep)
 
-    # ── Cross-pattern analysis (Quid Pro Quo + Circular Trading) ─────────────
+    # ── Cross-pattern analysis (Quid Pro Quo) ────────────────────────────────
     logger.info("Running cross-pattern analysis ...")
     qpq_alerts = detect_quid_pro_quo(db_path)
-    ct_alerts  = detect_circular_trading(db_path)
 
     print("\n" + sep)
     print("  CROSS-PATTERN ANALYSIS")
@@ -408,12 +406,6 @@ def _run_pipeline(file_paths, result_dir):
         print("        Cats A : " + ", ".join(a["email_a_categories"]))
         print("        Cats B : " + ", ".join(a["email_b_categories"]))
         print("        Conf   : " + str(a["avg_confidence"]))
-        print()
-
-    print("  Circular Trading patterns detected: " + str(len(ct_alerts)))
-    for a in ct_alerts:
-        print("  [" + a["severity"] + "] " + a["description"])
-        print("        Participants: " + str(a["cycle_length"]))
         print()
 
     print(sep)

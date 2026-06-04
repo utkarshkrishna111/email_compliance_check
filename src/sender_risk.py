@@ -32,6 +32,8 @@ def compute_risk_profile(stats: Dict[str, Any]) -> Dict[str, Any]:
     Compute a risk profile from aggregated sender stats returned by
     HistoryStore.get_sender_stats().
     """
+    logger.debug("→ compute_risk_profile  sender=%s  total_emails=%d",
+                 stats.get("sender"), stats.get("total", 0))
     total = stats.get("total", 0)
     if total == 0:
         return {

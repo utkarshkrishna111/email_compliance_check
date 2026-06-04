@@ -34,6 +34,9 @@ class ScoringEngine:
 
     def score(self, finding: Dict[str, Any]) -> Dict[str, Any]:
         """Augment finding with priority_score, priority_band, alert_level, score_breakdown."""
+        logger.debug("→ ScoringEngine.score  id=%s  categories=%s  confidence=%.2f",
+                     finding.get("id"), finding.get("categories", []),
+                     float(finding.get("confidence", 0.0)))
         categories = finding.get("categories", [])
         confidence = float(finding.get("confidence", 0.0))
 
