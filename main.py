@@ -177,10 +177,14 @@ load_dotenv()
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
-_DEFAULT_EMAIL_DATA_DIR = PROJECT_ROOT / os.environ.get("EMAIL_DATA_DIR", "email_data")
-_DEFAULT_RESULT_DIR     = PROJECT_ROOT / os.environ.get("RESULT_DIR",     "result")
-_DEFAULT_LOG_DIR        = PROJECT_ROOT / os.environ.get("LOG_DIR",        "logs")
-_DEFAULT_LOG_LEVEL      = os.environ.get("LOG_LEVEL", "INFO").upper()
+from src.config import (
+    INPUT_DIR   as _DEFAULT_EMAIL_DATA_DIR,
+    RESULT_DIR  as _DEFAULT_RESULT_DIR,
+    LOG_DIR     as _DEFAULT_LOG_DIR,
+    DB_PATH     as _DEFAULT_DB_PATH,
+    CHROMA_PATH as _DEFAULT_CHROMA_PATH,
+)
+_DEFAULT_LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 
 
 # =============================================================================
@@ -283,30 +287,17 @@ def configure_logging(log_level="INFO", log_dir=None, log_file=None):
 # Pipeline
 # =============================================================================
 
-def _run_pipeline(file_paths, result_dir):
+def _run_pipeline(file_paths, result_dir, skip_qpq=False):
     logger = logging.getLogger("main.pipeline")
 
-    from src.compliance_agent import ComplianceAgent
-    from src.config_loader import load_config
     from src.email_reader import load_emails
-    from src.guardrails import ComplianceVerifier, GuardrailValidator
-    from src.history_store import HistoryStore
+    from src.graph import build_graph, make_initial_state
     from src.quid_pro_quo_detector import detect_quid_pro_quo
-    from src.scoring_engine import ScoringEngine
     from src.storage import ResultsStorage
-    from src.thread_detector import detect_thread, extract_recipients, is_external_recipient
 
     logger.info("=" * 60)
     logger.info("  Email Compliance AI Agent  -  Pipeline Start")
     logger.info("=" * 60)
-
-    config = load_config()
-    logger.info("Config loaded: %d categories", len(config.get("categories", {})))
-
-    db_path = str(result_dir / "history.db")
-    chroma_path = str(result_dir / "chroma")
-    history_store = HistoryStore(db_path=db_path, chroma_path=chroma_path)
-    internal_domain = os.environ.get("INTERNAL_DOMAIN", "")
 
     all_emails = []
     for fp in file_paths:
@@ -323,38 +314,18 @@ def _run_pipeline(file_paths, result_dir):
 
     logger.info("Total emails to process: %d", len(all_emails))
 
-    logger.info("Initialising AI Compliance Agent ...")
-    agent    = ComplianceAgent()
-    findings = agent.analyse_batch(all_emails)
+    logger.info("Building LangGraph compliance pipeline ...")
+    graph = build_graph(
+        db_path=str(_DEFAULT_DB_PATH),
+        chroma_path=str(_DEFAULT_CHROMA_PATH),
+        internal_domain=os.environ.get("INTERNAL_DOMAIN", ""),
+    )
 
-    validator       = GuardrailValidator(config)
-    verifier        = ComplianceVerifier()
-    scorer          = ScoringEngine(config)
     scored_findings = []
-
-    for finding, email in zip(findings, all_emails):
-        is_valid, issues = validator.validate(finding, email)
-        finding["guardrail_passed"] = is_valid
-        finding["guardrail_issues"] = issues
-        if is_valid:
-            logger.info("Guardrail PASSED  id=%s", finding.get("id"))
-        else:
-            logger.warning("Guardrail FAILED  id=%s  issues=%s", finding.get("id"), issues)
-
-        finding = verifier.verify(finding, email)
-        finding = scorer.score(finding)
-        logger.info(
-            "Scored  id=%-35s  score=%3d  band=%-10s  alert=%s",
-            finding.get("id"), finding.get("priority_score", 0),
-            finding.get("priority_band", "?"), finding.get("alert_level", "?"),
-        )
-        scored_findings.append(finding)
-
-        # Persist to HistoryStore (SQLite + ChromaDB) for cross-pattern analysis
-        thread_id   = detect_thread(email)
-        recipients  = extract_recipients(email)
-        is_external = is_external_recipient(email, internal_domain)
-        history_store.save_finding(finding, thread_id, recipients, is_external)
+    for i, email in enumerate(all_emails, 1):
+        logger.info("── Email %d/%d ──────────────────────────────────────────", i, len(all_emails))
+        result = graph.invoke(make_initial_state(email))
+        scored_findings.append(result["scored_finding"])
 
     storage     = ResultsStorage(str(result_dir))
     run_label   = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -391,13 +362,16 @@ def _run_pipeline(file_paths, result_dir):
     print(sep)
 
     # ── Cross-pattern analysis (Quid Pro Quo) ────────────────────────────────
-    logger.info("Running cross-pattern analysis ...")
-    qpq_alerts = detect_quid_pro_quo(db_path)
+    if skip_qpq:
+        logger.info("Quid Pro Quo check skipped (--skip-qpq)")
+        return
+
+    logger.info("Running Quid Pro Quo analysis ...")
+    qpq_alerts = detect_quid_pro_quo(str(_DEFAULT_DB_PATH))
 
     print("\n" + sep)
     print("  CROSS-PATTERN ANALYSIS")
     print(sep)
-
     print("  Quid Pro Quo patterns detected  : " + str(len(qpq_alerts)))
     for a in qpq_alerts:
         print("  [" + a["severity"] + "] " + a["party_a"] + " ↔ " + a["party_b"])
@@ -407,7 +381,6 @@ def _run_pipeline(file_paths, result_dir):
         print("        Cats B : " + ", ".join(a["email_b_categories"]))
         print("        Conf   : " + str(a["avg_confidence"]))
         print()
-
     print(sep)
 
 
@@ -596,6 +569,13 @@ def build_parser():
         ),
     )
 
+    parser.add_argument(
+        "--skip-qpq",
+        action="store_true",
+        default=False,
+        help="Skip the Quid Pro Quo cross-pattern analysis after processing.",
+    )
+
     return parser
 
 
@@ -643,12 +623,12 @@ def main():
         sys.exit(0)
 
     if args.file:
-        fp = Path(args.file)
+        fp = _DEFAULT_EMAIL_DATA_DIR / Path(args.file).name
         if not fp.exists():
             logger.error("File not found: %s", fp)
             sys.exit(1)
         logger.info("Mode: single file -> %s", fp)
-        _run_pipeline([str(fp)], result_dir=Path(args.result_dir))
+        _run_pipeline([str(fp)], result_dir=Path(args.result_dir), skip_qpq=args.skip_qpq)
 
     elif args.data_dir:
         dd = Path(args.data_dir)
@@ -656,16 +636,17 @@ def main():
             logger.error("Directory not found: %s", dd)
             sys.exit(1)
         logger.info("Mode: folder scan -> %s", dd)
-        supported = {".pdf", ".xlsx", ".xls", ".xlsm"}
+        from src.email_reader import SUPPORTED_EXTENSIONS
         files = sorted(
             p for p in dd.iterdir()
-            if p.suffix.lower() in supported and p.is_file()
+            if p.suffix.lower() in SUPPORTED_EXTENSIONS and p.is_file()
         )
         if not files:
-            logger.error("No supported email files (.pdf/.xlsx) found in: %s", dd)
+            logger.error("No supported email files %s found in: %s",
+                         tuple(sorted(SUPPORTED_EXTENSIONS)), dd)
             sys.exit(1)
         logger.info("Found %d file(s): %s", len(files), [f.name for f in files])
-        _run_pipeline([str(f) for f in files], result_dir=Path(args.result_dir))
+        _run_pipeline([str(f) for f in files], result_dir=Path(args.result_dir), skip_qpq=args.skip_qpq)
 
     else:
         logger.info("Mode: API server")

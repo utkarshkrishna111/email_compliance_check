@@ -21,10 +21,10 @@ from flask import Flask, jsonify, request, send_from_directory, redirect
 
 load_dotenv()
 
-PROJECT_ROOT   = Path(__file__).parent.parent
-UI_DIR         = PROJECT_ROOT / "ui"
-EMAIL_DATA_DIR = PROJECT_ROOT / os.environ.get("EMAIL_DATA_DIR", "email_data")
-RESULT_DIR     = PROJECT_ROOT / os.environ.get("RESULT_DIR",     "result")
+from .config import INPUT_DIR as EMAIL_DATA_DIR, RESULT_DIR, DB_PATH, CHROMA_PATH
+
+PROJECT_ROOT = Path(__file__).parent.parent
+UI_DIR       = PROJECT_ROOT / "ui"
 UPLOAD_EXT     = {".pdf", ".xlsx", ".xls", ".xlsm"}
 
 app    = Flask(__name__, static_folder=None)
@@ -74,8 +74,8 @@ def _run_pipeline(file_paths):
     scorer    = ScoringEngine(config)
     storage   = ResultsStorage(str(RESULT_DIR))
     history   = HistoryStore(
-        db_path=str(RESULT_DIR / "history.db"),
-        chroma_path=str(RESULT_DIR / "chroma"),
+        db_path=str(DB_PATH),
+        chroma_path=str(CHROMA_PATH),
     )
     internal_domain = os.environ.get("INTERNAL_DOMAIN", "")
 
@@ -191,8 +191,8 @@ def get_cross_patterns():
     """
     from src.quid_pro_quo_detector import detect_quid_pro_quo
 
-    db_path = str(RESULT_DIR / "history.db")
-    if not (RESULT_DIR / "history.db").exists():
+    db_path = str(DB_PATH)
+    if not DB_PATH.exists():
         return jsonify({
             "quid_pro_quo": [],
             "note": "history.db not found — run the pipeline at least once first.",

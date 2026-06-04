@@ -1,10 +1,11 @@
 """
 src/email_reader.py
 -------------------
-Reads email content from PDF or Excel files.
+Reads email content from PDF, Excel, or CSV files.
 
 PDF  : uses pdfplumber (pure-Python, no DLL/VC++ dependency)
 Excel: uses pandas + openpyxl
+CSV  : uses pandas (built-in)
 
 Public API
 ----------
@@ -19,7 +20,7 @@ from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_EXTENSIONS = {".pdf", ".xlsx", ".xls", ".xlsm"}
+SUPPORTED_EXTENSIONS = {".pdf", ".xlsx", ".xls", ".xlsm", ".csv"}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -35,6 +36,8 @@ def load_emails(file_path: str) -> List[Dict[str, Any]]:
         return _extract_pdf(file_path)
     elif ext in (".xlsx", ".xls", ".xlsm"):
         return _extract_excel(file_path)
+    elif ext == ".csv":
+        return _extract_csv(file_path)
     else:
         raise ValueError(
             f"Unsupported file type '{ext}'. "
@@ -156,6 +159,58 @@ def _extract_excel(file_path: str) -> List[Dict[str, Any]]:
         emails.append(email)
 
     logger.info("Extracted %d email(s) from Excel '%s'",
+                len(emails), Path(file_path).name)
+    return emails
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CSV extractor
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _extract_csv(file_path: str) -> List[Dict[str, Any]]:
+    logger.debug("→ _extract_csv  path=%s", file_path)
+    try:
+        import pandas as pd
+    except ImportError:
+        raise ImportError(
+            "pandas is required for CSV reading.\n"
+            "Run: pip install pandas --prefer-binary"
+        )
+
+    df = pd.read_csv(file_path, dtype=str, keep_default_na=False)
+    df.columns = [str(c).strip().lower() for c in df.columns]
+    logger.debug("  CSV rows=%d  columns=%s", len(df), list(df.columns))
+
+    col_aliases = {
+        "from":    ["from", "sender", "from_address"],
+        "to":      ["to", "recipient", "to_address"],
+        "subject": ["subject", "sub", "email_subject"],
+        "date":    ["date", "sent_date", "timestamp"],
+        "body":    ["body", "content", "email_body", "message"],
+    }
+
+    def _find(aliases):
+        for a in aliases:
+            if a in df.columns:
+                return a
+        return None
+
+    emails: List[Dict[str, Any]] = []
+    for idx, row in df.iterrows():
+        email: Dict[str, Any] = {
+            "id":      f"csv_{Path(file_path).stem}_{idx + 1}",
+            "source":  str(file_path),
+            "from":    "", "to": "", "subject": "", "date": "", "body": "",
+        }
+        for field, aliases in col_aliases.items():
+            col = _find(aliases)
+            if col:
+                email[field] = row[col].strip()
+        logger.debug("CSV email[%d]: id=%s subject='%s'",
+                     idx, email["id"], email["subject"])
+        emails.append(email)
+
+    logger.info("Extracted %d email(s) from CSV '%s'",
                 len(emails), Path(file_path).name)
     return emails
 

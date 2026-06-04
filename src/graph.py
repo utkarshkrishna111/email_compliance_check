@@ -22,7 +22,6 @@ from .history_store import HistoryStore
 from .quid_pro_quo_detector import detect_quid_pro_quo
 from .scoring_engine import ScoringEngine
 from .sender_risk import compute_risk_profile
-from .storage import ResultsStorage
 from .thread_detector import detect_thread, extract_recipients, is_external_recipient
 
 logger = logging.getLogger(__name__)
@@ -160,11 +159,7 @@ def _score(state: ComplianceState, engine: ScoringEngine) -> Dict:
     return {"scored_finding": scored}
 
 
-def _persist(
-    state: ComplianceState,
-    store: HistoryStore,
-    result_storage: ResultsStorage,
-) -> Dict:
+def _persist(state: ComplianceState, store: HistoryStore) -> Dict:
     logger.info("▶ [8/8] persist  email_id=%s  band=%s  score=%d",
                 state["scored_finding"].get("id"),
                 state["scored_finding"].get("priority_band"),
@@ -175,10 +170,7 @@ def _persist(
         state["recipients"],
         state["is_external"],
     )
-    result_storage.save([state["scored_finding"]])
-    logger.info("Persisted  id=%s  band=%s",
-                state["scored_finding"].get("id"),
-                state["scored_finding"].get("priority_band"))
+    logger.info("Persisted to SQLite+Chroma  id=%s", state["scored_finding"].get("id"))
     return {}
 
 
@@ -194,7 +186,6 @@ def build_graph(
     config_path:     str | None = None,
     db_path:         str = "result/history.db",
     chroma_path:     str = "result/chroma",
-    result_dir:      str = "result",
     internal_domain: str = "",
 ):
     """
@@ -203,15 +194,15 @@ def build_graph(
     Usage
     -----
     graph = build_graph(internal_domain="yourbank.com")
-    result = graph.invoke({"email": email_dict, ...initial_state_defaults...})
+    result = graph.invoke(make_initial_state(email_dict))
+    result["scored_finding"]  # the final scored finding
     """
-    config         = load_config(config_path)
-    store          = HistoryStore(db_path=db_path, chroma_path=chroma_path)
-    agent          = ComplianceAgent(config)
-    validator      = GuardrailValidator(config)
-    verifier       = ComplianceVerifier()
-    engine         = ScoringEngine(config)
-    result_storage = ResultsStorage(result_dir)
+    config    = load_config(config_path)
+    store     = HistoryStore(db_path=db_path, chroma_path=chroma_path)
+    agent     = ComplianceAgent(config)
+    validator = GuardrailValidator(config)
+    verifier  = ComplianceVerifier()
+    engine    = ScoringEngine(config)
 
     g = StateGraph(ComplianceState)
 
@@ -223,7 +214,7 @@ def build_graph(
     g.add_node("verify",           lambda s: _verify(s, verifier))
     g.add_node("flag_review",      _flag_review)
     g.add_node("score",            lambda s: _score(s, engine))
-    g.add_node("persist",          lambda s: _persist(s, store, result_storage))
+    g.add_node("persist",          lambda s: _persist(s, store))
 
     g.set_entry_point("detect_thread")
     g.add_edge("detect_thread",    "retrieve_history")
