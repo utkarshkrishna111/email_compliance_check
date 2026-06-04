@@ -5,20 +5,22 @@ Entry point for the Email Compliance AI Agent.
 
 Modes
 -----
-  Server  (default)        Start the Flask API for the HTML dashboard
-  File    (--file PATH)    Analyse a single PDF / Excel file
-  Folder  (--data-dir DIR) Scan a folder and analyse every supported file
-         (positional)      Shorthand: python main.py email_data
+  Setup   (--setup)           Create venv and install all dependencies
+  Server  (default)           Start the Flask API for the HTML dashboard
+  File    (--file PATH)       Analyse a single PDF / Excel file
+  Folder  (--data-dir DIR)    Scan a folder and analyse every supported file
+           (positional)       Shorthand: python main.py email_data
 
 Usage examples
 --------------
-  python main.py                                  Start API server
-  python main.py --server                         Same as above
-  python main.py email_data                       Analyse folder (shorthand)
-  python main.py --data-dir email_data            Analyse folder (explicit)
+  python main.py --setup                              create venv + install packages
+  python main.py                                      start API server (venv must be active)
+  python main.py --server                             same as above
+  python main.py email_data                           analyse folder (shorthand)
+  python main.py --data-dir email_data                analyse folder (explicit)
   python main.py --data-dir email_data --log-level DEBUG
   python main.py --file email_data/test_emails.xlsx
-  python main.py --file email_data/test_emails.pdf --log-level DEBUG
+  python main.py --inspect-db                         show SQLite & ChromaDB records
   python main.py --help
 """
 
@@ -29,74 +31,20 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent
 
 # =============================================================================
+# --setup: runs before venv guard and before any third-party import
+# =============================================================================
+
+if "--setup" in sys.argv:
+    from utils.venv_setup import setup_venv
+    setup_venv(PROJECT_ROOT)
+    sys.exit(0)
+
+# =============================================================================
 # VENV GUARD - runs before any third-party import
 # =============================================================================
 
-def _find_venv():
-    """Return path to a venv folder in the project root, or None.
-    Checks common names: .venv, venv, env."""
-    for name in (".venv", "venv", "env"):
-        candidate = PROJECT_ROOT / name
-        if (candidate / "pyvenv.cfg").exists():
-            return candidate
-    return None
-
-
-def _check_venv():
-    """
-    Exit with a clear message when not running inside any virtual environment.
-
-    Detection (any one passing = we are in a venv, return silently):
-      1. sys.prefix != sys.base_prefix   standard venv indicator
-      2. VIRTUAL_ENV env var             set by Activate.ps1 and PyCharm
-      3. CONDA_PREFIX env var            conda environments
-      4. Running python.exe lives inside a venv folder on disk
-    """
-    if sys.prefix != sys.base_prefix:
-        return
-    if os.environ.get("VIRTUAL_ENV"):
-        return
-    if os.environ.get("CONDA_PREFIX"):
-        return
-
-    # Physical path check
-    running = Path(sys.executable).resolve()
-    venv = _find_venv()
-    if venv:
-        try:
-            running.relative_to(venv.resolve())
-            return
-        except ValueError:
-            pass
-
-    # Nothing matched - print helpful fix and exit
-    venv = _find_venv()
-    sep = "=" * 62
-    print(sep)
-    print("  ERROR: Virtual environment is not activated.")
-    print(sep)
-    if venv:
-        n = venv.name
-        print()
-        print("  Found a venv at: " + str(venv))
-        print()
-        print("  Activate in PowerShell:  .\\" + n + "\\Scripts\\Activate.ps1")
-        print("  Activate in CMD:         " + n + "\\Scripts\\activate.bat")
-        print()
-        print("  Then re-run:  python main.py email_data")
-        print()
-        print("  Or in PyCharm: Settings -> Python Interpreter -> Add Interpreter")
-        print("    -> Existing -> " + str(venv / "Scripts" / "python.exe"))
-    else:
-        print()
-        print("  No venv found. Run setup first:")
-        print("    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass")
-        print("    .\\setup.ps1")
-    print(sep)
-    sys.exit(1)
-
-
-_check_venv()
+from utils.venv_setup import check_venv
+check_venv(PROJECT_ROOT)
 
 # =============================================================================
 # Standard library imports
@@ -104,73 +52,11 @@ _check_venv()
 import argparse
 import logging
 import logging.handlers
-import subprocess
 from datetime import datetime
 
 # =============================================================================
-# Auto-install missing packages into the active venv
+# Third-party setup
 # =============================================================================
-
-def _ensure(pip_name, import_name=None):
-    """Import a package; pip-install it quietly if not present."""
-    mod = import_name or pip_name
-    try:
-        __import__(mod)
-    except ModuleNotFoundError:
-        print("  [auto-install] " + pip_name + " not found - installing ...")
-        subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", pip_name,
-             "--quiet", "--prefer-binary"],
-            stdout=subprocess.DEVNULL,
-        )
-        print("  [auto-install] " + pip_name + " installed.")
-
-# ---------------------------------------------------------------------------
-# Required packages: pip name and Python import name.
-#
-# Key constraints verified for Python 3.10-3.14 on Windows:
-#   openai >=2.26.0       required by langchain-openai 1.x
-#   tiktoken >=0.7.0      required by langchain-openai 1.x
-#   langchain-community   removed - not used by this app
-#   pdfplumber: pure-Python PDF reader, no DLL/VC++ dependency
-# ---------------------------------------------------------------------------
-_REQUIRED_PACKAGES = [
-    # (pip_install_name,        python_import_name)
-    ("python-dotenv",           "dotenv"),
-    ("pyyaml",                  "yaml"),
-    ("pdfplumber",               "pdfplumber"),  # pure-Python PDF reader, no DLL/VC++ needed
-    ("pandas",                  "pandas"),
-    ("openpyxl",                "openpyxl"),
-    ("openai>=2.26.0",          "openai"),
-    ("langchain",               "langchain"),
-    ("langchain-openai",        "langchain_openai"),
-    ("langchain-core",          "langchain_core"),
-    ("flask",                   "flask"),
-    ("flask-cors",              "flask_cors"),
-    ("tiktoken>=0.7.0",         "tiktoken"),
-    ("colorlog",                "colorlog"),
-    ("reportlab",               "reportlab"),
-]
-
-_any_installed = False
-for _pip_name, _import_name in _REQUIRED_PACKAGES:
-    try:
-        __import__(_import_name)
-    except ModuleNotFoundError:
-        if not _any_installed:
-            print("  [auto-install] Installing missing packages ...")
-            _any_installed = True
-        _display = _pip_name.split(">")[0].split("=")[0].split("<")[0]
-        print("  [auto-install] Installing " + _display + " ...")
-        subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", _pip_name,
-             "--quiet", "--prefer-binary"],
-            stdout=subprocess.DEVNULL,
-        )
-
-if _any_installed:
-    print("  [auto-install] All packages installed. Starting application ...")
-    print()
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -385,85 +271,6 @@ def _run_pipeline(file_paths, result_dir, skip_qpq=False):
 
 
 # =============================================================================
-# DB Inspector
-# =============================================================================
-
-def _inspect_db(result_dir: Path) -> None:
-    db_path     = result_dir / "history.db"
-    chroma_path = result_dir / "chroma"
-
-    sep = "-" * 56
-
-    # ── SQLite ────────────────────────────────────────────────
-    print("\n" + sep)
-    print("  SQLite  ->", db_path)
-    print(sep)
-    if not db_path.exists():
-        print("  [NOT FOUND] No history.db in", result_dir)
-    else:
-        import sqlite3, json as _json
-        conn = sqlite3.connect(str(db_path))
-
-        # summary counts
-        for tbl in ("historical_llm_response", "recipient_network", "sender_weekly_volume"):
-            n = conn.execute(f"SELECT COUNT(*) FROM {tbl}").fetchone()[0]
-            print(f"  {tbl:<35} {n:>5} row(s)")
-
-        # recent findings
-        print()
-        print("  Recent findings (last 10):")
-        rows = conn.execute(
-            "SELECT id, sender, subject, is_compliant, priority_band, created_at "
-            "FROM historical_llm_response ORDER BY created_at DESC LIMIT 10"
-        ).fetchall()
-        if not rows:
-            print("    (empty)")
-        else:
-            for r in rows:
-                compliant = "OK " if not r[3] else "NON"
-                print(f"    [{compliant}] {r[5]}  {r[1] or '(no sender)':30}  {r[2][:40] or '(no subject)'}")
-        conn.close()
-
-    # ── ChromaDB ──────────────────────────────────────────────
-    print()
-    print(sep)
-    print("  ChromaDB  ->", chroma_path)
-    print(sep)
-    if not chroma_path.exists():
-        print("  [NOT FOUND] No chroma/ folder in", result_dir)
-    else:
-        try:
-            import chromadb
-            col = chromadb.PersistentClient(path=str(chroma_path)).get_collection("email_compliance")
-            count = col.count()
-            print(f"  Collection 'email_compliance'  {count} document(s)")
-            if count:
-                sample = col.get(limit=5, include=["metadatas"])
-                print()
-                print("  Sample (up to 5):")
-                for meta in sample["metadatas"]:
-                    print(f"    sender={meta.get('sender','?'):30}  compliant={meta.get('is_compliant','?')}  band={meta.get('priority_band','?')}")
-        except ImportError:
-            print("  chromadb not installed. Run: pip install chromadb")
-        except Exception as exc:
-            print("  ChromaDB error:", exc)
-
-    print(sep + "\n")
-
-
-# =============================================================================
-# Server
-# =============================================================================
-
-def run_server():
-    logger = logging.getLogger("main.server")
-    logger.info("Starting Email Compliance server ...")
-    from src.api_server import start
-    # start() serves the dashboard at http://localhost:5050 and opens the browser
-    start(port=5050, open_browser=True)
-
-
-# =============================================================================
 # CLI argument parser
 # =============================================================================
 
@@ -474,6 +281,7 @@ def build_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
+            "  python main.py --setup                      create venv + install packages\n"
             "  python main.py email_data                   analyse folder (shorthand)\n"
             "  python main.py --data-dir email_data        same, explicit flag\n"
             "  python main.py --data-dir email_data --log-level DEBUG\n"
@@ -482,7 +290,7 @@ def build_parser():
             "  python main.py --server --log-level DEBUG\n"
             "  python main.py --inspect-db                 show SQLite & ChromaDB records\n"
             "\n"
-            "Defaults (set by setup.ps1 in .env):\n"
+            "Defaults (set by setup in .env):\n"
             "  Email input : " + str(_DEFAULT_EMAIL_DATA_DIR) + "\n"
             "  Results     : " + str(_DEFAULT_RESULT_DIR) + "\n"
             "  Logs        : " + str(_DEFAULT_LOG_DIR) + "\n"
@@ -500,6 +308,16 @@ def build_parser():
             "Shorthand positional argument. "
             "Pass a folder path (same as --data-dir) or a file path (same as --file). "
             "Example: python main.py email_data"
+        ),
+    )
+
+    parser.add_argument(
+        "--setup",
+        action="store_true",
+        help=(
+            "Create a virtual environment (if needed) and install all required packages. "
+            "Runs before the venv guard — safe to run from the system Python. "
+            "Exits after setup completes."
         ),
     )
 
@@ -619,7 +437,8 @@ def main():
 
     # Dispatch
     if args.inspect_db:
-        _inspect_db(Path(args.result_dir))
+        from utils.chroma_utils import inspect_db
+        inspect_db(Path(args.result_dir))
         sys.exit(0)
 
     if args.file:
@@ -650,6 +469,7 @@ def main():
 
     else:
         logger.info("Mode: API server")
+        from utils.api_server import run_server
         run_server()
 
 

@@ -175,8 +175,17 @@ class ComplianceVerifier:
             finding["verification_note"] = v.get("verification_note", "Confirmed.")
 
         except Exception as exc:
-            logger.error("Verification failed for id=%s: %s", finding.get("id"), exc)
-            finding["verification_note"] = f"Verification skipped: {exc}"
+            exc_str = str(exc)
+            if "content_filter" in exc_str or "content management policy" in exc_str:
+                logger.warning(
+                    "Verification skipped for id=%s: Azure content filter triggered "
+                    "(email content flagged by content policy; finding kept as-is)",
+                    finding.get("id"),
+                )
+                finding["verification_note"] = "Verification skipped: content filter triggered on email body."
+            else:
+                logger.error("Verification failed for id=%s: %s", finding.get("id"), exc)
+                finding["verification_note"] = f"Verification skipped: {exc}"
 
         return finding
 
