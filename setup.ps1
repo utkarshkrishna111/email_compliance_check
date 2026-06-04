@@ -249,10 +249,10 @@ Write-Host "        Enter your Azure OpenAI credentials." -ForegroundColor White
 Write-Host "        (Press ENTER to keep the placeholder and edit .env later)" -ForegroundColor DarkGray
 Write-Host ""
 
-$defaultEndpoint   = "https://<YOUR_RESOURCE>.openai.azure.com/"
-$defaultApiKey     = "<YOUR_API_KEY>"
-$defaultApiVersion = "2024-02-15-preview"
-$defaultDeployment = "gpt-4o"
+$defaultEndpoint   = "https://dev-openai-service-02.openai.azure.com"
+$defaultApiKey     = "<YOUR_AZURE_OPENAI_API_KEY>"
+$defaultApiVersion = "2025-01-01-preview"
+$defaultDeployment = "aprbatch1-22520ec1-fb36-4c4c-947b-32f783a023ce"
 
 $inputEndpoint = Read-Host "        Azure OpenAI Endpoint   [$defaultEndpoint]"
 if ([string]::IsNullOrWhiteSpace($inputEndpoint)) { $inputEndpoint = $defaultEndpoint }

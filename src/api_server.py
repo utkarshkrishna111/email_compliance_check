@@ -62,8 +62,10 @@ def _run_pipeline(file_paths):
     from src.config_loader import load_config
     from src.email_reader import load_emails
     from src.guardrails import ComplianceVerifier, GuardrailValidator
+    from src.history_store import HistoryStore
     from src.scoring_engine import ScoringEngine
     from src.storage import ResultsStorage
+    from src.thread_detector import detect_thread, extract_recipients, is_external_recipient
 
     config    = load_config()
     agent     = ComplianceAgent()
@@ -71,6 +73,11 @@ def _run_pipeline(file_paths):
     verifier  = ComplianceVerifier()
     scorer    = ScoringEngine(config)
     storage   = ResultsStorage(str(RESULT_DIR))
+    history   = HistoryStore(
+        db_path=str(RESULT_DIR / "history.db"),
+        chroma_path=str(RESULT_DIR / "chroma"),
+    )
+    internal_domain = os.environ.get("INTERNAL_DOMAIN", "")
 
     all_findings = []
     for fp in file_paths:
@@ -89,6 +96,11 @@ def _run_pipeline(file_paths):
             finding = verifier.verify(finding, email)
             finding = scorer.score(finding)
             all_findings.append(finding)
+
+            thread_id   = detect_thread(email)
+            recipients  = extract_recipients(email)
+            is_external = is_external_recipient(email, internal_domain)
+            history.save_finding(finding, thread_id, recipients, is_external)
 
     run_label   = datetime.now().strftime("%Y%m%d_%H%M%S")
     result_path = storage.save(all_findings, run_label=run_label)

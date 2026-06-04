@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>graph.py — LangGraph Pipeline Walkthrough</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:      #0b0e17;
+  --surface: #111624;
+  --surf2:   #161d30;
+  --surf3:   #1a2238;
+  --border:  #1e2740;
+  --a1:      #4f8ef7;
+  --a2:      #7b5af7;
+  --a3:      #1fd1a0;
+  --warn:    #f7a84f;
+  --danger:  #f75a5a;
+  --crimson: #e8456a;
+  --text:    #e2e8f8;
+  --muted:   #6b7a9f;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden}
+code,pre,.mono{font-family:'DM Mono',monospace}
+
+/* ── NAV ── */
+nav{position:sticky;top:0;z-index:100;background:rgba(11,14,23,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:14px 28px}
+nav .logo{font-size:.8rem;font-weight:700;letter-spacing:.12em;color:var(--a1);text-transform:uppercase}
+nav .sep{flex:1}
+nav a{font-size:.72rem;color:var(--muted);text-decoration:none;letter-spacing:.05em;padding:5px 11px;border-radius:6px;transition:.2s}
+nav a:hover{background:var(--surf2);color:var(--text)}
+
+/* ── HERO ── */
+.hero{text-align:center;padding:70px 20px 50px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(79,142,247,.12),transparent);pointer-events:none}
+.hero h1{font-size:clamp(1.9rem,4vw,3rem);font-weight:800;letter-spacing:-.02em;background:linear-gradient(135deg,#a8c8ff 0%,#7b5af7 50%,#1fd1a0 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1.15}
+.hero .sub{margin-top:14px;color:var(--muted);font-size:.9rem;max-width:620px;margin-inline:auto;line-height:1.6}
+.hero .file-tag{display:inline-block;margin-top:18px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;padding:6px 16px;font-size:.75rem;color:var(--a1);letter-spacing:.08em}
+
+/* ── SECTION WRAPPER ── */
+.wrap{max-width:1100px;margin:0 auto;padding:0 24px}
+section{padding:56px 0}
+.sec-title{font-size:1.1rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:28px;display:flex;align-items:center;gap:10px}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── PIPELINE DIAGRAM ── */
+.pipeline{display:flex;flex-direction:column;align-items:center;gap:0;position:relative}
+.pipe-node{width:100%;max-width:680px;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:18px 24px;cursor:pointer;transition:.22s;position:relative}
+.pipe-node:hover{border-color:var(--node-color, var(--a1));box-shadow:0 0 24px var(--node-glow, rgba(79,142,247,.2));transform:translateX(3px)}
+.pipe-node.active{border-color:var(--node-color, var(--a1));box-shadow:0 0 28px var(--node-glow, rgba(79,142,247,.25))}
+.pipe-node .node-header{display:flex;align-items:center;gap:14px}
+.node-badge{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;background:var(--node-bg,rgba(79,142,247,.15));color:var(--node-color,var(--a1));border:1px solid var(--node-color,var(--a1))}
+.node-title{font-size:.95rem;font-weight:700;color:var(--text)}
+.node-fn{font-size:.72rem;color:var(--muted);margin-top:2px}
+.node-fn span{color:var(--node-color,var(--a1));font-family:'DM Mono',monospace}
+.node-detail{display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)}
+.pipe-node.active .node-detail{display:block}
+.node-detail p{font-size:.82rem;line-height:1.7;color:#b0bcda;margin-bottom:10px}
+.node-detail .writes{margin-top:10px}
+.writes-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.writes-tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{display:inline-block;padding:3px 10px;border-radius:5px;font-size:.68rem;font-family:'DM Mono',monospace;background:rgba(79,142,247,.1);color:var(--a1);border:1px solid rgba(79,142,247,.25)}
+.tag.green{background:rgba(31,209,160,.1);color:var(--a3);border-color:rgba(31,209,160,.25)}
+.tag.warn{background:rgba(247,168,79,.1);color:var(--warn);border-color:rgba(247,168,79,.25)}
+.tag.red{background:rgba(247,90,90,.1);color:var(--danger);border-color:rgba(247,90,90,.25)}
+.tag.purple{background:rgba(123,90,247,.1);color:var(--a2);border-color:rgba(123,90,247,.25)}
+.code-block{background:var(--surf3);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:.75rem;line-height:1.7;color:#b0bcda;overflow-x:auto;margin-top:10px;white-space:pre}
+.kw{color:#7b5af7}.fn{color:#4f8ef7}.str{color:#1fd1a0}.cmt{color:#4a5568}
+
+/* ── ARROWS ── */
+.arrow{height:36px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.75rem;gap:6px;position:relative;z-index:1}
+.arrow svg{color:var(--muted)}
+.arrow.branch{height:60px;flex-direction:column;gap:2px}
+
+/* ── BRANCH SPLIT ── */
+.branch-wrap{width:100%;max-width:680px;display:grid;grid-template-columns:1fr 1fr;gap:14px;position:relative}
+.branch-wrap::before{content:'';position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:1px;height:20px;background:var(--border)}
+.branch-node{background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;cursor:pointer;transition:.22s}
+.branch-node:hover,.branch-node.active{border-color:var(--node-color,var(--a1));box-shadow:0 0 20px var(--node-glow,rgba(79,142,247,.18))}
+.branch-node .node-detail{display:none}
+.branch-node.active .node-detail{display:block}
+.branch-label{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:5px;margin-bottom:10px;display:inline-block}
+.label-pass{background:rgba(31,209,160,.15);color:var(--a3)}
+.label-fail{background:rgba(247,90,90,.15);color:var(--danger)}
+.merge-label{font-size:.7rem;color:var(--muted);margin-top:4px}
+
+/* ── STATE TABLE ── */
+.state-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.state-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;transition:.2s}
+.state-card:hover{border-color:var(--a1);background:var(--surf2)}
+.state-field{font-family:'DM Mono',monospace;font-size:.82rem;color:var(--a1);margin-bottom:6px}
+.state-type{font-size:.7rem;color:var(--muted);font-family:'DM Mono',monospace}
+.state-desc{font-size:.78rem;color:#8896b8;margin-top:6px;line-height:1.55}
+.state-owner{margin-top:8px;font-size:.67rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--a3)}
+
+/* ── FUNCTION REFERENCE ── */
+.fn-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.fn-table th{text-align:left;padding:10px 14px;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)}
+.fn-table td{padding:12px 14px;border-bottom:1px solid rgba(30,39,64,.6);vertical-align:top;line-height:1.55}
+.fn-table tr:hover td{background:var(--surf2)}
+.fn-name{font-family:'DM Mono',monospace;color:var(--a1);white-space:nowrap}
+.fn-line{font-size:.68rem;color:var(--muted)}
+.fn-return{font-family:'DM Mono',monospace;font-size:.75rem;color:var(--a3)}
+
+/* ── CROSS PATTERN ── */
+.cp-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:640px){.cp-grid{grid-template-columns:1fr}.branch-wrap{grid-template-columns:1fr}}
+.cp-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px}
+.cp-card h3{font-size:.9rem;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.cp-card p{font-size:.8rem;color:#8896b8;line-height:1.65}
+.cp-steps{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.cp-step{display:flex;gap:10px;font-size:.78rem;color:#8896b8}
+.step-num{width:20px;height:20px;border-radius:50%;background:rgba(79,142,247,.15);color:var(--a1);display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;flex-shrink:0;margin-top:1px}
+
+/* ── FLOW ANIMATION ── */
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--a3);animation:pulse 2s infinite;flex-shrink:0}
+
+/* ── FOOTER ── */
+footer{border-top:1px solid var(--border);padding:24px;text-align:center;color:var(--muted);font-size:.75rem}
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">Email Compliance AI</span>
+  <span class="sep"></span>
+  <a href="#pipeline">Pipeline</a>
+  <a href="#state">State</a>
+  <a href="#functions">Functions</a>
+  <a href="#cross">Cross-Pattern</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>graph.py — LangGraph Pipeline</h1>
+  <p class="sub">A stateful directed graph where each node reads from and writes back to a shared <code>ComplianceState</code> dict. Click any node to see exactly what it does, what it reads, and what it writes.</p>
+  <div class="file-tag">src/graph.py</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ PIPELINE -->
+<section id="pipeline">
+<div class="wrap">
+  <div class="sec-title">Pipeline Flow — click a node to expand</div>
+
+  <div class="pipeline">
+
+    <!-- EMAIL INPUT -->
+    <div class="pipe-node" id="n-input"
+         style="--node-color:#1fd1a0;--node-glow:rgba(31,209,160,.2);--node-bg:rgba(31,209,160,.12)"
+         onclick="toggle('n-input')">
+      <div class="node-header">
+        <div class="node-badge">📧</div>
+        <div>
+          <div class="node-title">Email Input</div>
+          <div class="node-fn"><span>make_initial_state(email_dict)</span> — line 230</div>
+        </div>
+      </div>
+      <div class="node-detail">
+        <p>Before the graph runs, you call <code>make_initial_state(email)</code> to produce a fully-initialised <code>ComplianceState</code> with all keys set to safe defaults (empty strings / lists / dicts). LangGraph requires every key to exist before the first node executes.</p>
+        <div class="code-block"><span class="fn">graph</span> = <span class="fn">build_graph</span>(internal_domain=<span class="str">"yourbank.com"</span>)
+<span class="fn">result</span> = graph.<span class="fn">invoke</span>(<span class="fn">make_initial_state</span>(email_dict))
+scored = result[<span class="str">"scored_finding"</span>]</div>
+        <div class="writes">
+          <div class="writes-label">Initialises keys</div>
+          <div class="writes-tags">
+            <span class="tag green">email</span>
+            <span class="tag">thread_id = ""</span>
+            <span class="tag">recipients = []</span>
+            <span class="tag">finding = {}</span>
+            <span class="tag">scored_finding = {}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg width="12" height="20" viewBox="0 0 12 20"><path d="M6 0v16M1 11l5 6 5-6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- NODE 1: detect_thread -->
+    <div class="pipe-node" id="n-detect"
+         style="--node-color:#4f8ef7;--node-glow:rgba(79,142,247,.2);--node-bg:rgba(79,142,247,.1)"
+         onclick="toggle('n-detect')">
+      <div class="node-header">
+        <div class="node-badge">🔗</div>
+        <div>
+          <div class="node-title">1 · detect_thread</div>
+          <div class="node-fn"><span>_detect_thread(state, store, internal_domain)</span> — line 51</div>
+        </div>
+      </div>
+      <div class="node-detail">
+        <p><strong>What it does:</strong> Derives a stable, content-based <code>thread_id</code> by hashing the email subject (normalised) plus the sorted set of all participants. This means every email in the same conversation gets the same ID regardless of order.</p>
+        <p>Also extracts the recipient list and checks whether any recipient's email domain is outside the org (<code>is_external</code>). External emails get a score multiplier applied later.</p>
+        <div class="writes">
+          <div class="writes-label">Calls (from thread_detector.py)</div>
+          <div class="writes-tags">
+            <span class="tag purple">detect_thread(email)</span>
+            <span class="tag purple">extract_recipients(email)</span>
+            <span class="tag purple">is_external_recipient(email, domain)</span>
+          </div>
+        </div>
+        <div class="writes" style="margin-top:12px">
+          <div class="writes-label">Writes to state</div>
+          <div class="writes-tags">
+            <span class="tag">thread_id</span>
+            <span class="tag">recipients</span>
+            <span class="tag">is_external</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg width="12" height="20" viewBox="0 0 12 20"><path d="M6 0v16M1 11l5 6 5-6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- NODE 2: retrieve_history -->
+    <div class="pipe-node" id="n-history"
+         style="--node-color:#7b5af7;--node-glow:rgba(123,90,247,.2);--node-bg:rgba(123,90,247,.1)"
+         onclick="toggle('n-history')">
+      <div class="node-header">
+        <div class="node-badge">🗄️</div>
+        <div>
+          <div class="node-title">2 · retrieve_history</div>
+          <div class="node-fn"><span>_retrieve_history(state, store)</span> — line 60</div>
+        </div>
+      </div>
+      <div class="node-detail">
+        <p><strong>What it does:</strong> Makes three SQLite queries against <code>HistoryStore</code>, then derives two intelligence signals from the results.</p>
+        <p>
+          <strong>Query 1 — thread history:</strong> <code>store.get_thread_history(thread_id)</code> fetches all prior findings for this thread. These bodies will be replaced by summaries in the next node.<br><br>
+          <strong>Query 2 — sender stats:</strong> <code>store.get_sender_stats(sender)</code> returns violation rate, average confidence, and category severity for this sender's full history.<br><br>
+          <strong>Query 3 — weekly volumes:</strong> <code>store.get_weekly_volumes(sender)</code> returns per-ISO-week email counts going back across all history.
+        </p>
+        <p>From query 2 → <code>compute_risk_profile()</code> produces a <code>risk_band</code> (CLEAN / LOW_RISK / ELEVATED / HIGH_RISK) and a 0-100 score.</p>
+        <p>From query 3 → <code>detect_volume_anomaly()</code> runs a Z-score. If weekly volume spikes beyond 2.0 standard deviations (requires ≥ 3 weeks of history), <code>is_anomalous=True</code>.</p>
+        <div class="writes">
+          <div class="writes-label">Writes to state</div>
+          <div class="writes-tags">
+            <span class="tag purple">thread_history</span>
+            <span class="tag purple">sender_risk</span>
+            <span class="tag purple">volume_anomaly</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg width="12" height="20" viewBox="0 0 12 20"><path d="M6 0v16M1 11l5 6 5-6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- NODE 3: build_context -->
+    <div class="pipe-node" id="n-context"
+         style="--node-color:#1fd1a0;--node-glow:rgba(31,209,160,.2);--node-bg:rgba(31,209,160,.1)"
+         onclick="toggle('n-context')">
+      <div class="node-header">
+        <div class="node-badge">📝</div>
+        <div>
+          <div class="node-title">3 · build_context</div>
+          <div class="node-fn"><span>_build_context(state)</span> — line 81</div>
+        </div>
+      </div>
+      <div class="node-detail">
+        <p><strong>What it does:</strong> Assembles the <code>extra_context</code> string that will be injected into the LLM prompt alongside the raw email. Three things happen here:</p>
+        <p>
+          <strong>1. Thread summarisation:</strong> Calls <code>build_thread_context(thread_history)</code> from <code>context_builder.py</code>. Prior email bodies are swapped out for their cached LLM summaries — a 3-email thread that would be ~380 tokens becomes ~145 tokens (~62% saving).<br><br>
+          <strong>2. Risk note injection:</strong> If <code>sender_risk.risk_score ≥ 40</code> (ELEVATED or above), a <code>[SENDER RISK PROFILE: HIGH_RISK score=82 — ...]</code> line is appended. This biases the LLM toward closer scrutiny.<br><br>
+          <strong>3. Anomaly note injection:</strong> If <code>volume_anomaly.is_anomalous == True</code>, a <code>[COMMUNICATION ANOMALY: ...]</code> line is appended.
+        </p>
+        <div class="writes">
+          <div class="writes-label">Writes to state</div>
+          <div class="writes-tags">
+            <span class="tag green">extra_context</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg width="12" height="20" viewBox="0 0 12 20"><path d="M6 0v16M1 11l5 6 5-6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- NODE 4: compliance_agent -->
+    <div class="pipe-node" id="n-agent"
+         style="--node-color:#f7a84f;--node-glow:rgba(247,168,79,.2);--node-bg:rgba(247,168,79,.1)"
+         onclick="toggle('n-agent')">
+      <div class="node-header">
+        <div class="node-badge">🤖</div>
+        <div>
+          <div class="node-title">4 · compliance_agent</div>
+          <div class="node-fn"><span>_compliance_agent(state, agent)</span> — line 100  ·  <span style="color:#f7a84f">LLM CALL #1</span></div>
+        </div>
+      </div>
+      <div class="node-detail">
+        <p><strong>What it does:</strong> Makes the first LLM call. Passes <code>state["email"]</code> and <code>state["extra_context"]</code> into <code>ComplianceAgent.analyse()</code> from <code>compliance_agent.py</code>.</p>
+        <p>GPT-4o receives a structured prompt containing the email content, the list of compliance categories (from <code>compliance_matrix.yaml</code>), and any injected context (risk profile, anomaly note, thread summaries). It returns a structured JSON-like finding.</p>
+        <div class="writes">
+          <div class="writes-label">LLM output (raw finding) written to state</div>
+          <div class="writes-tags">
+            <span class="tag warn">finding.id</span>
+            <span class="tag warn">finding.categories</span>
+            <span class="tag warn">finding.confidence</span>
+            <span class="tag warn">finding.is_compliant</span>
+            <span class="tag warn">finding.reasoning</span>
+            <span class="tag warn">finding.evidence</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg width="12" height="20" viewBox="0 0 12 20"><path d="M6 0v16M1 11l5 6 5-6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- NODE 5: guardrail_check -->
+    <div class="pipe-node" id="n-guard"
+         style="--node-color:#e8456a;--node-glow:rgba(232,69,106,.2);--node-bg:rgba(232,69,106,.1)"
+         onclick="toggle('n-guard')">
+      <div class="node-header">
+        <div class="node-badge">🛡️</div>
+        <div>
+          <div class="node-title">5 · guardrail_check</div>
+          <div class="node-fn"><span>_guardrail_check(state, validator)</span> — line 105  ·  <span style="color:#e8456a">ROUTER GATE</span></div>
+        </div>
+      </div>
+      <div class="node-detail">
+        <p><strong>What it does:</strong> Runs pure rule-based validation on the LLM's <code>finding</code>. No LLM call here — this is fast, deterministic logic from <code>guardrails.py</code>.</p>
+        <p>Checks performed by <code>GuardrailValidator.validate()</code>:</p>
+        <div class="code-block"><span class="cmt"># Required fields present (id, categories, confidence, reasoning)</span>
+<span class="cmt"># confidence is a float between 0.0 and 1.0</span>
+<span class="cmt"># at least 1 evidence line (from compliance_matrix: min_evidence_lines)</span>
+<span class="cmt"># reasoning length >= 30 chars (from compliance_matrix: min_reasoning_length)</span>
+<span class="cmt"># category IDs are valid (exist in compliance_matrix.yaml)</span>
+<span class="cmt"># soft hallucination guard: no obviously fabricated sender names</span></div>
+        <p>If all checks pass → <code>guardrail_issues = []</code> → router sends to <strong>verify</strong>.<br>
+        If any check fails → <code>guardrail_issues = ["reason 1", ...]</code> → router sends to <strong>flag_review</strong>.</p>
+        <div class="writes">
+          <div class="writes-label">Writes to state</div>
+          <div class="writes-tags">
+            <span class="tag red">guardrail_issues  ([] = PASS)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROUTER LABEL -->
+    <div class="arrow branch">
+      <div style="font-size:.7rem;color:var(--muted);letter-spacing:.06em">_guardrail_router() — line 171</div>
+      <svg width="12" height="20" viewBox="0 0 12 20"><path d="M6 0v16M1 11l5 6 5-6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div style="font-size:.67rem;color:var(--muted)">routes to one of two branches below</div>
+    </div>
+
+    <!-- BRANCH -->
+    <div class="branch-wrap">
+
+      <!-- VERIFY -->
+      <div class="branch-node" id="n-verify"
+           style="--node-color:#1fd1a0;--node-glow:rgba(31,209,160,.18)"
+           onclick="toggle('n-verify')">
+        <div><span class="branch-label label-pass">PASS — guardrail_issues == []</span></div>
+        <div class="node-header" style="gap:10px">
+          <div class="node-badge" style="background:rgba(31,209,160,.12);color:#1fd1a0;border-color:#1fd1a0">✅</div>
+          <div>
+            <div class="node-title" style="font-size:.88rem">6a · verify</div>
+            <div class="node-fn"><span>_verify(state, verifier)</span> — line 113</div>
+          </div>
+        </div>
+        <div class="node-detail">
+          <p style="font-size:.78rem;color:#8896b8;line-height:1.65"><strong>LLM CALL #2.</strong> Passes the same email + the first LLM's finding into <code>ComplianceVerifier.verify()</code>. The second LLM pass is asked to confirm or correct the classification. If it disagrees with the first, it overwrites <code>finding</code>.</p>
+          <p style="font-size:.78rem;color:#8896b8;line-height:1.65">Reason for two LLM calls: the first call is creative/analytical, the second is a skeptical reviewer. Together they reduce false positives without sacrificing recall.</p>
+          <div class="writes">
+            <div class="writes-label">Writes to state</div>
+            <div class="writes-tags"><span class="tag green">finding (verified / corrected)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FLAG REVIEW -->
+      <div class="branch-node" id="n-flag"
+           style="--node-color:#f75a5a;--node-glow:rgba(247,90,90,.18)"
+           onclick="toggle('n-flag')">
+        <div><span class="branch-label label-fail">FAIL — guardrail_issues not empty</span></div>
+        <div class="node-header" style="gap:10px">
+          <div class="node-badge" style="background:rgba(247,90,90,.12);color:#f75a5a;border-color:#f75a5a">⚠️</div>
+          <div>
+            <div class="node-title" style="font-size:.88rem">6b · flag_review</div>
+            <div class="node-fn"><span>_flag_review(state)</span> — line 118</div>
+          </div>
+        </div>
+        <div class="node-detail">
+          <p style="font-size:.78rem;color:#8896b8;line-height:1.65"><strong>No LLM call.</strong> The guardrail failure means the LLM output cannot be trusted. Instead of guessing, this node writes a safe default <code>scored_finding</code> directly — bypassing both verify and score.</p>
+          <div class="code-block" style="font-size:.7rem"><span class="cmt"># Sets these directly on scored_finding:</span>
+priority_score  = <span class="str">0</span>
+priority_band   = <span class="str">"REVIEW_REQUIRED"</span>
+alert_level     = <span class="str">"HIGH"</span>
+guardrail_issues = [<span class="str">"..."</span>]  <span class="cmt"># reasons</span></div>
+          <div class="writes">
+            <div class="writes-label">Writes to state</div>
+            <div class="writes-tags"><span class="tag red">scored_finding (pre-filled)</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <div class="merge-label" style="font-size:.68rem;color:var(--muted);margin-bottom:4px">both branches converge here</div>
+      <svg width="12" height="20" viewBox="0 0 12 20"><path d="M6 0v16M1 11l5 6 5-6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- NODE 7: score -->
+    <div class="pipe-node" id="n-score"
+         style="--node-color:#f7a84f;--node-glow:rgba(247,168,79,.2);--node-bg:rgba(247,168,79,.1)"
+         onclick="toggle('n-score')">
+      <div class="node-header">
+        <div class="node-badge">📊</div>
+        <div>
+          <div class="node-title">7 · score</div>
+          <div class="node-fn"><span>_score(state, engine)</span> — line 134</div>
+        </div>
+      </div>
+      <div class="node-detail">
+        <p><strong>What it does:</strong> Calls <code>ScoringEngine.score()</code> from <code>scoring_engine.py</code>, which reads the compliance_matrix config to compute a 0-100 priority score from the finding's categories.</p>
+        <p><strong>Score formula:</strong> For each detected category, take its <code>base_weight</code> (0-10). Sum across categories. Normalise to 0-100. Then apply multipliers:</p>
+        <div class="code-block"><span class="cmt"># Multipliers (from compliance_matrix.yaml)</span>
+× 1.20  <span class="cmt">if 2+ categories detected  (multi_category_bonus)</span>
+× 1.15  <span class="cmt">if confidence >= 0.80       (high_confidence_bonus)</span>
+× 1.10  <span class="cmt">if is_external == True      (external_recipient_bonus)</span>
+
+<span class="cmt"># Priority bands:</span>
+score >= 80  →  CRITICAL
+score >= 60  →  HIGH
+score >= 40  →  MEDIUM
+score >=  0  →  LOW</div>
+        <p>Then two graph-level extras are applied on top of <code>ScoringEngine</code>'s output:</p>
+        <div class="code-block"><span class="cmt"># HIGH_RISK sender boost (+10%)</span>
+<span class="kw">if</span> sender_risk[<span class="str">"risk_band"</span>] == <span class="str">"HIGH_RISK"</span> <span class="kw">and</span> priority_score > <span class="str">0</span>:
+    priority_score = <span class="fn">min</span>(<span class="str">100</span>, priority_score × <span class="str">1.10</span>)
+    scored[<span class="str">"sender_risk_boost"</span>] = <span class="kw">True</span>
+
+<span class="cmt"># Volume anomaly flag</span>
+<span class="kw">if</span> volume_anomaly[<span class="str">"is_anomalous"</span>]:
+    scored[<span class="str">"volume_anomaly_flag"</span>] = <span class="kw">True</span></div>
+        <div class="writes">
+          <div class="writes-label">Writes to state</div>
+          <div class="writes-tags">
+            <span class="tag warn">scored_finding</span>
+            <span class="tag warn">scored_finding.priority_score</span>
+            <span class="tag warn">scored_finding.priority_band</span>
+            <span class="tag warn">scored_finding.alert_level</span>
+            <span class="tag warn">scored_finding.sender_risk_boost?</span>
+            <span class="tag warn">scored_finding.volume_anomaly_flag?</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg width="12" height="20" viewBox="0 0 12 20"><path d="M6 0v16M1 11l5 6 5-6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- NODE 8: persist -->
+    <div class="pipe-node" id="n-persist"
+         style="--node-color:#7b5af7;--node-glow:rgba(123,90,247,.2);--node-bg:rgba(123,90,247,.1)"
+         onclick="toggle('n-persist')">
+      <div class="node-header">
+        <div class="node-badge">💾</div>
+        <div>
+          <div class="node-title">8 · persist</div>
+          <div class="node-fn"><span>_persist(state, store, result_storage)</span> — line 153</div>
+        </div>
+      </div>
+      <div class="node-detail">
+        <p><strong>What it does:</strong> Writes the final <code>scored_finding</code> to two persistence layers.</p>
+        <p><strong>Layer 1 — SQLite + ChromaDB via <code>HistoryStore.save_finding()</code>:</strong></p>
+        <div class="code-block"><span class="cmt"># Three SQLite tables updated:</span>
+historical_llm_response  <span class="cmt">← full finding JSON, thread_id, sender</span>
+recipient_network        <span class="cmt">← upserts (sender, recipient) pair counts</span>
+sender_weekly_volume     <span class="cmt">← upserts sender's count for current ISO week</span>
+
+<span class="cmt"># ChromaDB (optional — skipped if not installed):</span>
+<span class="cmt"># embeds the reasoning text and stores with metadata</span>
+<span class="cmt"># enables semantic_search() later</span></div>
+        <p><strong>Layer 2 — JSON file via <code>ResultsStorage.save()</code>:</strong><br>
+        Writes / overwrites <code>result/latest.json</code> with the current finding. Also writes a timestamped copy.</p>
+        <p>Returns <code>{}</code> — this node writes no new keys to the state.</p>
+        <div class="writes">
+          <div class="writes-label">External side-effects (not state keys)</div>
+          <div class="writes-tags">
+            <span class="tag purple">result/history.db  (SQLite)</span>
+            <span class="tag purple">result/chroma/     (ChromaDB)</span>
+            <span class="tag purple">result/latest.json</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg width="12" height="20" viewBox="0 0 12 20"><path d="M6 0v16M1 11l5 6 5-6" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+
+    <!-- END -->
+    <div class="pipe-node"
+         style="--node-color:#1fd1a0;--node-glow:rgba(31,209,160,.15);--node-bg:rgba(31,209,160,.08);max-width:680px;cursor:default">
+      <div class="node-header" style="justify-content:center">
+        <div class="live-dot"></div>
+        <div style="font-size:.85rem;font-weight:700;color:var(--a3);letter-spacing:.06em">END — result["scored_finding"] is ready</div>
+      </div>
+    </div>
+
+  </div><!-- /pipeline -->
+</div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════ STATE -->
+<section id="state">
+<div class="wrap">
+  <div class="sec-title">ComplianceState — the shared memory bag (line 35)</div>
+  <p style="font-size:.82rem;color:var(--muted);margin-bottom:24px;line-height:1.6">Every node receives the full state dict and returns only the keys it updates. LangGraph merges the partial return back into the shared state automatically. No node needs to pass data directly to another node.</p>
+  <div class="state-grid">
+
+    <div class="state-card">
+      <div class="state-field">email</div>
+      <div class="state-type">Dict[str, Any]</div>
+      <div class="state-desc">The raw input email — keys like <code>from</code>, <code>to</code>, <code>subject</code>, <code>body</code>, <code>date</code>. Set by <code>make_initial_state()</code>. Never modified by any node.</div>
+      <div class="state-owner">Set at: make_initial_state()</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-field">thread_id</div>
+      <div class="state-type">str</div>
+      <div class="state-desc">Stable hash of (normalised subject + sorted participants). Same for all emails in the same conversation thread.</div>
+      <div class="state-owner">Written by: detect_thread</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-field">recipients</div>
+      <div class="state-type">List[str]</div>
+      <div class="state-desc">All email addresses in To + CC fields. Used by persist to update the recipient_network table in SQLite.</div>
+      <div class="state-owner">Written by: detect_thread</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-field">is_external</div>
+      <div class="state-type">bool</div>
+      <div class="state-desc">True if any recipient's domain differs from <code>internal_domain</code> passed to <code>build_graph()</code>. Triggers the ×1.10 score multiplier in score node.</div>
+      <div class="state-owner">Written by: detect_thread</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-field">thread_history</div>
+      <div class="state-type">List[Dict]</div>
+      <div class="state-desc">Prior scored findings for this thread from SQLite. Fed into <code>build_thread_context()</code> which replaces their bodies with cached LLM summaries.</div>
+      <div class="state-owner">Written by: retrieve_history</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-field">sender_risk</div>
+      <div class="state-type">Dict[str, Any]</div>
+      <div class="state-desc">Keys: <code>risk_band</code> (CLEAN/LOW_RISK/ELEVATED/HIGH_RISK), <code>risk_score</code> (0-100), <code>factors</code> (list of strings explaining the score).</div>
+      <div class="state-owner">Written by: retrieve_history</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-field">volume_anomaly</div>
+      <div class="state-type">Dict[str, Any]</div>
+      <div class="state-desc">Keys: <code>is_anomalous</code> (bool), <code>z_score</code> (float), <code>reason</code> (str). Set only if sender has ≥ 3 weeks of history and this week's count spikes > 2σ.</div>
+      <div class="state-owner">Written by: retrieve_history</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-field">extra_context</div>
+      <div class="state-type">str</div>
+      <div class="state-desc">The assembled context string injected into the LLM prompt. Contains: thread summaries + optional risk profile note + optional anomaly note.</div>
+      <div class="state-owner">Written by: build_context</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-field">finding</div>
+      <div class="state-type">Dict[str, Any]</div>
+      <div class="state-desc">Raw LLM output from <code>compliance_agent</code>. Possibly overwritten by <code>verify</code>. Contains: id, categories, confidence, is_compliant, reasoning, evidence.</div>
+      <div class="state-owner">Written by: compliance_agent → verify</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-field">guardrail_issues</div>
+      <div class="state-type">List[str]</div>
+      <div class="state-desc">Empty list = guardrails passed → goes to verify. Non-empty list = validation failed reasons → goes to flag_review. The router reads this key.</div>
+      <div class="state-owner">Written by: guardrail_check</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-field">scored_finding</div>
+      <div class="state-type">Dict[str, Any]</div>
+      <div class="state-desc">The final output. Everything from <code>finding</code> plus: <code>priority_score</code>, <code>priority_band</code>, <code>alert_level</code>, optionally <code>sender_risk_boost</code> and <code>volume_anomaly_flag</code>.</div>
+      <div class="state-owner">Written by: score (or flag_review)</div>
+    </div>
+
+  </div>
+</div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════ FUNCTIONS -->
+<section id="functions">
+<div class="wrap">
+  <div class="sec-title">Public function reference</div>
+  <table class="fn-table">
+    <thead>
+      <tr>
+        <th>Function</th>
+        <th>Purpose</th>
+        <th>Returns</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="fn-name">build_graph()</span><br><span class="fn-line">line 177</span></td>
+        <td>Factory. Creates all stateful objects (HistoryStore, ComplianceAgent, ScoringEngine etc.) once, wires all 9 nodes + edges + conditional router, compiles and returns a runnable LangGraph.</td>
+        <td><span class="fn-return">CompiledGraph</span></td>
+      </tr>
+      <tr>
+        <td><span class="fn-name">make_initial_state(email)</span><br><span class="fn-line">line 230</span></td>
+        <td>Convenience helper. Creates a ComplianceState TypedDict with all 11 keys set to safe empty defaults. Required before calling graph.invoke().</td>
+        <td><span class="fn-return">ComplianceState</span></td>
+      </tr>
+      <tr>
+        <td><span class="fn-name">run_cross_pattern_analysis()</span><br><span class="fn-line">line 247</span></td>
+        <td>Post-batch analysis. NOT part of the per-email graph. Directly calls detect_quid_pro_quo() and detect_circular_trading() against the SQLite history built up by many graph runs. Call this once after a full batch is processed.</td>
+        <td><span class="fn-return">{"quid_pro_quo": [...], "circular_trading": [...]}</span></td>
+      </tr>
+      <tr>
+        <td><span class="fn-name">_guardrail_router(state)</span><br><span class="fn-line">line 171</span></td>
+        <td>The only branching logic in the whole graph. Reads guardrail_issues from state and returns the string "verify" or "flag_review". LangGraph uses this return value to pick the next node.</td>
+        <td><span class="fn-return">"verify" | "flag_review"</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════════ CROSS PATTERN -->
+<section id="cross">
+<div class="wrap">
+  <div class="sec-title">Cross-Pattern Analysis — runs after the full batch</div>
+  <p style="font-size:.82rem;color:var(--muted);margin-bottom:24px;line-height:1.6">These two detectors operate on the accumulated SQLite history — not on any single email. They find patterns that only become visible once many emails have been processed and persisted.</p>
+  <div class="cp-grid">
+
+    <div class="cp-card">
+      <h3 style="color:#f7a84f">🤝 Quid Pro Quo Detector
+        <span style="font-size:.65rem;background:rgba(247,168,79,.15);border:1px solid rgba(247,168,79,.3);border-radius:5px;padding:2px 8px;color:#f7a84f">quid_pro_quo_detector.py</span>
+      </h3>
+      <p>Finds mutual-favour arrangements that span two separate email threads. No single email reveals this; only the cross-thread pattern does.</p>
+      <div class="cp-steps">
+        <div class="cp-step"><div class="step-num">1</div>Query historical_llm_response for all non-compliant findings within days_window (default 30 days).</div>
+        <div class="cp-step"><div class="step-num">2</div>SQL self-join: find pairs where email1 is from A→B and email2 is from B→A.</div>
+        <div class="cp-step"><div class="step-num">3</div>Filter: both emails must involve a QPQ-relevant category (bribery, market_manipulation, or employee_ethics).</div>
+        <div class="cp-step"><div class="step-num">4</div>Verify actual addressing: sender1 is in recipients of email2, and vice versa.</div>
+        <div class="cp-step"><div class="step-num">5</div>De-duplicate: canonical pair key so A↔B and B↔A count as one alert. Severity = CRITICAL if avg_confidence ≥ 0.80.</div>
+      </div>
+    </div>
+
+    <div class="cp-card">
+      <h3 style="color:#e8456a">🔄 Circular Trading Detector
+        <span style="font-size:.65rem;background:rgba(232,69,106,.15);border:1px solid rgba(232,69,106,.3);border-radius:5px;padding:2px 8px;color:#e8456a">circular_trading_detector.py</span>
+      </h3>
+      <p>Finds coordinated round-trip trade schemes (A→B→C→A) by running DFS cycle detection on the recipient communication network.</p>
+      <div class="cp-steps">
+        <div class="cp-step"><div class="step-num">1</div>Query recipient_network for edges where flagged_count >= min_flagged (default 1).</div>
+        <div class="cp-step"><div class="step-num">2</div>Verify each edge: at least one underlying email must be flagged for market_manipulation or circular_trading.</div>
+        <div class="cp-step"><div class="step-num">3</div>Build directed adjacency graph: { sender: {recipient, ...}, ... }.</div>
+        <div class="cp-step"><div class="step-num">4</div>DFS from each node. Intermediate nodes constrained to be lexicographically greater than start to avoid duplicates.</div>
+        <div class="cp-step"><div class="step-num">5</div>Record cycles of length 3–max_cycle_length. Severity: CRITICAL for 3-4 participants, HIGH for 5-6.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- HOW TO CALL -->
+  <div style="margin-top:28px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px">
+    <div style="font-size:.8rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:14px">How to call graph.py directly</div>
+    <pre class="code-block" style="font-size:.76rem"><span class="kw">from</span> src.graph <span class="kw">import</span> build_graph, make_initial_state, run_cross_pattern_analysis
+
+<span class="cmt"># 1. Build the compiled graph once (expensive — reuse it across emails)</span>
+graph = <span class="fn">build_graph</span>(
+    internal_domain=<span class="str">"yourbank.com"</span>,
+    db_path=<span class="str">"result/history.db"</span>,
+    chroma_path=<span class="str">"result/chroma"</span>,
+    result_dir=<span class="str">"result"</span>,
+)
+
+<span class="cmt"># 2. Run one email through the full pipeline</span>
+result = graph.<span class="fn">invoke</span>(<span class="fn">make_initial_state</span>(email_dict))
+scored = result[<span class="str">"scored_finding"</span>]
+<span class="fn">print</span>(scored[<span class="str">"priority_band"</span>], scored[<span class="str">"priority_score"</span>])
+
+<span class="cmt"># 3. After processing the whole batch, run cross-pattern analysis</span>
+alerts = <span class="fn">run_cross_pattern_analysis</span>(<span class="str">"result/history.db"</span>)
+<span class="fn">print</span>(alerts[<span class="str">"quid_pro_quo"</span>])
+<span class="fn">print</span>(alerts[<span class="str">"circular_trading"</span>])</pre>
+  </div>
+
+  <!-- NOTE ABOUT MAIN.PY -->
+  <div style="margin-top:16px;background:rgba(247,168,79,.07);border:1px solid rgba(247,168,79,.2);border-radius:10px;padding:16px 20px;font-size:.8rem;color:#c4a060;line-height:1.65">
+    <strong>Note:</strong> <code>main.py</code> (the CLI) does <em>not</em> use <code>graph.py</code>. It calls each module (<code>compliance_agent</code>, <code>guardrails</code>, <code>scoring_engine</code> etc.) directly in a loop. <code>graph.py</code> is the cleaner LangGraph-wired version — both produce identical <code>scored_finding</code> output. The API server's <code>/api/analyse</code> endpoint can use either path.
+  </div>
+
+</div>
+</section>
+
+<footer>
+  graph.py — LangGraph Pipeline Walkthrough &nbsp;·&nbsp; Email Compliance AI Agent
+</footer>
+
+<script>
+function toggle(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const isActive = el.classList.contains('active');
+  // close all nodes first
+  document.querySelectorAll('.pipe-node, .branch-node').forEach(n => n.classList.remove('active'));
+  if (!isActive) el.classList.add('active');
+}
+</script>
+</body>
+</html>
