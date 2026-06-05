@@ -100,7 +100,7 @@ def _run_pipeline(file_paths):
             thread_id   = detect_thread(email)
             recipients  = extract_recipients(email)
             is_external = is_external_recipient(email, internal_domain)
-            history.save_finding(finding, thread_id, recipients, is_external)
+            history.save_finding_sqlite_chroma(finding, thread_id, recipients, is_external)
 
     run_label   = datetime.now().strftime("%Y%m%d_%H%M%S")
     result_path = storage.save(all_findings, run_label=run_label)

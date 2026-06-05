@@ -74,16 +74,16 @@ class HistoryStore:
 
     # ── write ─────────────────────────────────────────────────────────────────
 
-    def save_finding(
+    def save_finding_sqlite_chroma(
         self,
         finding: Dict[str, Any],
         thread_id: str,
         recipients: List[str],
         is_external: bool,
     ) -> None:
-        now = datetime.utcnow().isoformat() + "Z"
+        now = datetime.now().isoformat() + "Z"
         sender = finding.get("from", "")
-        week = datetime.utcnow().strftime("%Y-%W")
+        week = datetime.now().strftime("%Y-%W")
         flagged = int(not finding.get("is_compliant", True))
 
         with self._conn() as conn:
@@ -144,9 +144,9 @@ class HistoryStore:
 
     # ── read ──────────────────────────────────────────────────────────────────
 
-    def get_thread_history(self, thread_id: str) -> List[Dict[str, Any]]:
+    def get_thread_history_sqlite(self, thread_id: str) -> List[Dict[str, Any]]:
         """All prior findings for a thread, oldest first."""
-        logger.debug("→ get_thread_history  thread_id=%s", thread_id)
+        logger.debug("→ get_thread_history_sqlite  thread_id=%s", thread_id)
         with self._conn() as conn:
             rows = conn.execute(
             """ SELECT id, sender, subject, date, categories, confidence,
@@ -159,7 +159,7 @@ class HistoryStore:
                 (thread_id,),
             ).fetchall()
 
-        logger.debug("  get_thread_history → %d row(s) found", len(rows))
+        logger.debug("  get_thread_history_sqlite → %d row(s) found", len(rows))
         return [
             {
                 "id": r[0], "from": r[1], "subject": r[2], "date": r[3],
@@ -175,8 +175,8 @@ class HistoryStore:
             for r in rows
         ]
 
-    def get_sender_stats(self, sender: str) -> Dict[str, Any]:
-        logger.debug("→ get_sender_stats  sender=%s", sender)
+    def get_sender_stats_sqlite(self, sender: str) -> Dict[str, Any]:
+        logger.debug("→ get_sender_stats_sqlite  sender=%s", sender)
         with self._conn() as conn:
             rows = conn.execute(
                 """
@@ -188,7 +188,7 @@ class HistoryStore:
             ).fetchall()
 
         if not rows:
-            logger.debug("  get_sender_stats → no history for sender")
+            logger.debug("  get_sender_stats_sqlite → no history for sender")
             return {"sender": sender, "total": 0, "non_compliant": 0,
                     "category_counts": {}, "avg_confidence": 0.0}
 
@@ -207,12 +207,12 @@ class HistoryStore:
             "avg_confidence": round(avg_conf, 3),
             "category_counts": category_counts,
         }
-        logger.debug("  get_sender_stats → total=%d  non_compliant=%d  avg_conf=%.2f  cats=%s",
+        logger.debug("  get_sender_stats_sqlite → total=%d  non_compliant=%d  avg_conf=%.2f  cats=%s",
                      total, non_compliant, avg_conf, list(category_counts.keys()))
         return stats
 
-    def get_weekly_volumes(self, sender: str, weeks: int = 8) -> Dict[str, int]:
-        logger.debug("→ get_weekly_volumes  sender=%s  weeks=%d", sender, weeks)
+    def get_weekly_volumes_sqlite(self, sender: str, weeks: int = 8) -> Dict[str, int]:
+        logger.debug("→ get_weekly_volumes_sqlite  sender=%s  weeks=%d", sender, weeks)
         with self._conn() as conn:
             rows = conn.execute(
                 """
@@ -224,10 +224,10 @@ class HistoryStore:
                 (sender, weeks),
             ).fetchall()
         result = {r[0]: r[1] for r in rows}
-        logger.debug("  get_weekly_volumes → %d week(s) of history", len(result))
+        logger.debug("  get_weekly_volumes_sqlite → %d week(s) of history", len(result))
         return result
 
-    def get_recipient_network(self, sender: str) -> List[Dict[str, Any]]:
+    def get_recipient_network_sqlite(self, sender: str) -> List[Dict[str, Any]]:
         with self._conn() as conn:
             rows = conn.execute(
                 """
@@ -289,7 +289,7 @@ class HistoryStore:
         except Exception as exc:
             logger.warning("ChromaDB upsert failed for id=%s: %s", finding["id"], exc)
 
-    def semantic_search(self, query_text: str, n_results: int = 5) -> List[Dict[str, Any]]:
+    def semantic_search_chroma(self, query_text: str, n_results: int = 5) -> List[Dict[str, Any]]:
         if self._chroma is None:
             return []
         try:

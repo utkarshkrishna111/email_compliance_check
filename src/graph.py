@@ -61,8 +61,8 @@ def _retrieve_history(state: ComplianceState, store: HistoryStore) -> Dict:
     sender          = state["email"].get("from", "")
     logger.info("▶ [2/8] retrieve_history  email_id=%s  sender=%s  thread_id=%s",
                 state["email"].get("id"), sender, state.get("thread_id"))
-    thread_history  = store.get_thread_history(state["thread_id"])
-    sender_stats    = store.get_sender_stats(sender)
+    thread_history  = store.get_thread_history_sqlite(state["thread_id"])
+    sender_stats    = store.get_sender_stats_sqlite(sender)
     logger.debug("  thread_history_count=%d  sender_total_emails=%d",
                  len(thread_history), sender_stats.get("total", 0))
 
@@ -164,7 +164,7 @@ def _persist(state: ComplianceState, store: HistoryStore) -> Dict:
                 state["scored_finding"].get("id"),
                 state["scored_finding"].get("priority_band"),
                 state["scored_finding"].get("priority_score", 0))
-    store.save_finding(
+    store.save_finding_sqlite_chroma(
         state["scored_finding"],
         state["thread_id"],
         state["recipients"],

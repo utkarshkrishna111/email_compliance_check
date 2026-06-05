@@ -30,7 +30,7 @@ _CATEGORY_SEVERITY: Dict[str, int] = {
 def compute_risk_profile(stats: Dict[str, Any]) -> Dict[str, Any]:
     """
     Compute a risk profile from aggregated sender stats returned by
-    HistoryStore.get_sender_stats().
+    HistoryStore.get_sender_stats_sqlite().
     """
     logger.debug("→ compute_risk_profile  sender=%s  total_emails=%d",
                  stats.get("sender"), stats.get("total", 0))
