@@ -195,11 +195,14 @@ class ComplianceVerifier:
         except ImportError:
             raise ImportError("langchain-openai required")
 
+        deployment = os.environ.get("AZURE_OPENAI_VERIFIER_DEPLOYMENT") or \
+                     os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini")
+        logger.debug("ComplianceVerifier using deployment=%s", deployment)
         return AzureChatOpenAI(
             azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
             api_key=os.environ["AZURE_OPENAI_API_KEY"],
             api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"),
-            azure_deployment=os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
+            azure_deployment=deployment,
             temperature=0.0,
             max_tokens=400,
         )
