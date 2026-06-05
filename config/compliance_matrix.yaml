@@ -57,6 +57,16 @@ categories:
     description: >
       Sharing confidential, proprietary, or non-public information
       with unauthorized parties.
+
+      Also flag any intent to move business communication to a personal,
+      consumer-grade, or unmonitored channel.
+      Use your own knowledge to judge whether a referenced app or platform
+      is personal rather than enterprise-monitored — examples include Signal,
+      WhatsApp, Telegram, Facebook Messenger, Facebook, Instagram, Snapchat,
+      WeChat, iMessage, LINE, Viber, Twitter/X DMs, and similar consumer apps
+      or social media. A generic phrase like "text me" alone is NOT a violation;
+      "text me on Signal" or "I'll DM you on Instagram" IS a violation because
+      the named platform is personal and unmonitored.
     keywords:
       - "don't tell anyone"
       - "between us"
@@ -64,6 +74,9 @@ categories:
       - "confidential tip"
       - "keep this secret"
       - "MNPI"
+      - "don't put any of this in the system"
+      - "not in the system"
+      - "privately"
 
   employee_ethics:
     label: "Employee Ethics Violation"
