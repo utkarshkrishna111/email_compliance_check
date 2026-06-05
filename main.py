@@ -289,6 +289,7 @@ def build_parser():
             "  python main.py --server                     start dashboard API\n"
             "  python main.py --server --log-level DEBUG\n"
             "  python main.py --inspect-db                 show SQLite & ChromaDB records\n"
+            "  python main.py --clear-db                   wipe all SQLite + ChromaDB history\n"
             "\n"
             "Defaults (set by setup in .env):\n"
             "  Email input : " + str(_DEFAULT_EMAIL_DATA_DIR) + "\n"
@@ -344,6 +345,11 @@ def build_parser():
         "--inspect-db",
         action="store_true",
         help="Show row counts and recent records from SQLite and ChromaDB, then exit.",
+    )
+    mode.add_argument(
+        "--clear-db",
+        action="store_true",
+        help="Delete all entries from SQLite and ChromaDB history stores, then exit.",
     )
 
     io_group = parser.add_argument_group("Output options")
@@ -404,6 +410,13 @@ def build_parser():
 def main():
     parser = build_parser()
     args   = parser.parse_args()
+
+    if args.clear_db:
+        from src.history_store import HistoryStore
+        store = HistoryStore(db_path=str(_DEFAULT_DB_PATH), chroma_path=str(_DEFAULT_CHROMA_PATH))
+        store.clean_db()
+        print("Done — all history cleared.")
+        sys.exit(0)
 
     # Resolve positional shorthand: python main.py email_data
     if args.path and not args.server and not args.file and not args.data_dir:

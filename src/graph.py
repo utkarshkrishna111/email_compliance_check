@@ -235,7 +235,7 @@ def build_graph(
 
 
 def make_initial_state(email: Dict[str, Any]) -> ComplianceState:
-    """Convenience helper — returns a fully initialised state for one email."""
+    """Convenience helper — returns a fully initialized state for one email."""
     return ComplianceState(
         email            = email,
         thread_id        = "",

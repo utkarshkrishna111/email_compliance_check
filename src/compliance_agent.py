@@ -168,6 +168,7 @@ class ComplianceAgent:
         }
 
     def analyse_batch(self, emails: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """ Not used currently """
         logger.info("Starting batch analysis of %d email(s) …", len(emails))
         results = [self.analyse(e) for e in emails]
         nc = sum(1 for r in results if not r.get("is_compliant", True))

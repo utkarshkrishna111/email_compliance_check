@@ -149,13 +149,12 @@ class HistoryStore:
         logger.debug("→ get_thread_history  thread_id=%s", thread_id)
         with self._conn() as conn:
             rows = conn.execute(
-                """
-                SELECT id, sender, subject, date, categories, confidence,
-                       intent, reasoning, evidence, is_compliant,
-                       priority_score, priority_band, alert_level, created_at
-                FROM historical_llm_response
-                WHERE thread_id = ?
-                ORDER BY created_at ASC
+            """ SELECT id, sender, subject, date, categories, confidence,
+                intent, reasoning, evidence, is_compliant,
+                priority_score, priority_band, alert_level, created_at
+                    FROM historical_llm_response
+                    WHERE thread_id = ?
+                    ORDER BY created_at ASC
                 """,
                 (thread_id,),
             ).fetchall()
@@ -306,6 +305,25 @@ class HistoryStore:
         except Exception as exc:
             logger.warning("ChromaDB query failed: %s", exc)
             return []
+
+    # ── maintenance ───────────────────────────────────────────────────────────
+
+    def clean_db(self) -> None:
+        """Delete all rows from every SQLite table and all documents from ChromaDB."""
+        with self._conn() as conn:
+            conn.execute("DELETE FROM historical_llm_response")
+            conn.execute("DELETE FROM recipient_network")
+            conn.execute("DELETE FROM sender_weekly_volume")
+        logger.info("SQLite tables cleared")
+
+        if self._chroma is not None:
+            result = self._chroma.get()
+            ids = result.get("ids", [])
+            if ids:
+                self._chroma.delete(ids=ids)
+                logger.info("ChromaDB collection cleared  documents_removed=%d", len(ids))
+            else:
+                logger.info("ChromaDB collection was already empty")
 
     # ── internal ──────────────────────────────────────────────────────────────
 
