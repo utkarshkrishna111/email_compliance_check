@@ -58,59 +58,40 @@ def static_files(filename):
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _run_pipeline(file_paths):
-    from src.compliance_agent import ComplianceAgent
-    from src.config_loader import load_config
     from src.email_reader import load_emails
-    from src.guardrails import ComplianceVerifier, GuardrailValidator
-    from src.history_store import HistoryStore
-    from src.scoring_engine import ScoringEngine
+    from src.graph import build_graph, make_initial_state
     from src.storage import ResultsStorage
-    from src.thread_detector import detect_thread, extract_recipients, is_external_recipient
 
-    config    = load_config()
-    agent     = ComplianceAgent()
-    validator = GuardrailValidator(config)
-    verifier  = ComplianceVerifier()
-    scorer    = ScoringEngine(config)
-    storage   = ResultsStorage(str(RESULT_DIR))
-    history   = HistoryStore(
+    graph = build_graph(
         db_path=str(DB_PATH),
         chroma_path=str(CHROMA_PATH),
+        internal_domain=os.environ.get("INTERNAL_DOMAIN", ""),
     )
-    internal_domain = os.environ.get("INTERNAL_DOMAIN", "")
+    storage = ResultsStorage(str(RESULT_DIR))
 
-    all_findings = []
+    all_emails = []
     for fp in file_paths:
         try:
             emails = load_emails(fp)
             logger.info("Loaded %d email(s) from %s", len(emails), Path(fp).name)
+            all_emails.extend(emails)
         except Exception as exc:
             logger.error("Failed to read %s: %s", fp, exc)
-            continue
 
-        findings = agent.analyse_batch(emails)
-        for finding, email in zip(findings, emails):
-            is_valid, issues = validator.validate(finding, email)
-            finding["guardrail_passed"] = is_valid
-            finding["guardrail_issues"] = issues
-            finding = verifier.verify(finding, email)
-            finding = scorer.score(finding)
-            all_findings.append(finding)
-
-            thread_id   = detect_thread(email)
-            recipients  = extract_recipients(email)
-            is_external = is_external_recipient(email, internal_domain)
-            history.save_finding_sqlite_chroma(finding, thread_id, recipients, is_external)
+    scored_findings = []
+    for email in all_emails:
+        result = graph.invoke(make_initial_state(email))
+        scored_findings.append(result["scored_finding"])
 
     run_label   = datetime.now().strftime("%Y%m%d_%H%M%S")
-    result_path = storage.save(all_findings, run_label=run_label)
-    logger.info("Pipeline complete: %d findings -> %s", len(all_findings), result_path)
+    result_path = storage.save(scored_findings, run_label=run_label)
+    logger.info("Pipeline complete: %d findings -> %s", len(scored_findings), result_path)
 
     return {
-        "total_emails":  len(all_findings),
-        "non_compliant": sum(1 for f in all_findings if not f.get("is_compliant", True)),
+        "total_emails":  len(scored_findings),
+        "non_compliant": sum(1 for f in scored_findings if not f.get("is_compliant", True)),
         "result_file":   Path(result_path).name,
-        "findings":      all_findings,
+        "findings":      scored_findings,
     }
 
 

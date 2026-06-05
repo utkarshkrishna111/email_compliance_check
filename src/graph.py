@@ -21,7 +21,6 @@ from .guardrails import ComplianceVerifier, GuardrailValidator
 from .history_store import HistoryStore
 from .quid_pro_quo_detector import detect_quid_pro_quo
 from .scoring_engine import ScoringEngine
-from .sender_risk import compute_risk_profile
 from .thread_detector import detect_thread, extract_recipients, is_external_recipient
 
 logger = logging.getLogger(__name__)
@@ -35,7 +34,6 @@ class ComplianceState(TypedDict):
     recipients:       List[str]
     is_external:      bool
     thread_history:   List[Dict[str, Any]]
-    sender_risk:      Dict[str, Any]
     extra_context:    str
     finding:          Dict[str, Any]
     guardrail_issues: List[str]
@@ -58,41 +56,19 @@ def _detect_thread(state: ComplianceState, store: HistoryStore, internal_domain:
 
 
 def _retrieve_history(state: ComplianceState, store: HistoryStore) -> Dict:
-    sender          = state["email"].get("from", "")
-    logger.info("▶ [2/8] retrieve_history  email_id=%s  sender=%s  thread_id=%s",
-                state["email"].get("id"), sender, state.get("thread_id"))
-    thread_history  = store.get_thread_history_sqlite(state["thread_id"])
-    sender_stats    = store.get_sender_stats_sqlite(sender)
-    logger.debug("  thread_history_count=%d  sender_total_emails=%d",
-                 len(thread_history), sender_stats.get("total", 0))
-
-    sender_risk = compute_risk_profile(sender_stats)
-
-    logger.info("  thread_prior=%d  sender_risk=%s", len(thread_history), sender_risk["risk_band"])
-    logger.debug("  sender_risk_detail=%s", sender_risk)
-    return {
-        "thread_history": thread_history,
-        "sender_risk":    sender_risk,
-    }
+    logger.info("▶ [2/8] retrieve_history  email_id=%s  thread_id=%s",
+                state["email"].get("id"), state.get("thread_id"))
+    thread_history = store.get_thread_history_sqlite(state["thread_id"])
+    logger.debug("  thread_history_count=%d", len(thread_history))
+    logger.info("  thread_prior=%d", len(thread_history))
+    return {"thread_history": thread_history}
 
 
 def _build_context(state: ComplianceState) -> Dict:
     logger.info("▶ [3/8] build_context  email_id=%s  history_count=%d",
                 state["email"].get("id"), len(state.get("thread_history", [])))
     context = build_thread_context(state["thread_history"])
-
-    # append sender risk note if elevated
-    risk = state["sender_risk"]
-    if risk.get("risk_score", 0) >= 40:
-        context += (
-            f"\n[SENDER RISK PROFILE: {risk['risk_band']} "
-            f"score={risk['risk_score']} — {'; '.join(risk.get('factors', []))}]\n"
-        )
-        logger.debug("  risk profile injected into context  band=%s  score=%d",
-                     risk["risk_band"], risk["risk_score"])
-
-    logger.debug("  context_len=%d chars  has_risk=%s",
-                 len(context), risk.get("risk_score", 0) >= 40)
+    logger.debug("  context_len=%d chars", len(context))
     return {"extra_context": context}
 
 
@@ -146,16 +122,6 @@ def _flag_review(state: ComplianceState) -> Dict:
 def _score(state: ComplianceState, engine: ScoringEngine) -> Dict:
     logger.info("▶ [7/8] score  email_id=%s", state["finding"].get("id"))
     scored = engine.score(dict(state["finding"]))
-
-    # 10 % boost for HIGH_RISK senders on any non-compliant finding
-    risk = state["sender_risk"]
-    if risk.get("risk_band") == "HIGH_RISK" and scored.get("priority_score", 0) > 0:
-        original = scored["priority_score"]
-        scored["priority_score"] = min(100, int(original * 1.10))
-        scored["sender_risk_boost"] = True
-        logger.info("Score boosted: %d → %d (HIGH_RISK sender)", original, scored["priority_score"])
-
-    scored["sender_risk"] = state["sender_risk"]
     return {"scored_finding": scored}
 
 
@@ -242,7 +208,6 @@ def make_initial_state(email: Dict[str, Any]) -> ComplianceState:
         recipients       = [],
         is_external      = False,
         thread_history   = [],
-        sender_risk      = {},
         extra_context    = "",
         finding          = {},
         guardrail_issues = [],
