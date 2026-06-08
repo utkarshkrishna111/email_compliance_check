@@ -191,13 +191,26 @@ class ComplianceVerifier:
 
     def _build_llm(self):
         try:
-            from langchain_openai import AzureChatOpenAI
+            from langchain_openai import AzureChatOpenAI, ChatOpenAI
         except ImportError:
             raise ImportError("langchain-openai required")
 
-        deployment = os.environ.get("AZURE_OPENAI_VERIFIER_DEPLOYMENT") or \
-                     os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini")
-        logger.debug("ComplianceVerifier using deployment=%s", deployment)
+        provider = os.environ.get("OPENAI_PROVIDER", "azure").lower()
+
+        if provider == "openai":
+            model = (os.environ.get("OPENAI_VERIFIER_MODEL")
+                     or os.environ.get("OPENAI_MODEL", "gpt-4o"))
+            logger.debug("ComplianceVerifier using provider=openai  model=%s", model)
+            return ChatOpenAI(
+                api_key=os.environ["OPENAI_API_KEY"],
+                model=model,
+                temperature=0.0,
+                max_tokens=400,
+            )
+
+        deployment = (os.environ.get("AZURE_OPENAI_VERIFIER_DEPLOYMENT")
+                      or os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini"))
+        logger.debug("ComplianceVerifier using provider=azure  deployment=%s", deployment)
         return AzureChatOpenAI(
             azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
             api_key=os.environ["AZURE_OPENAI_API_KEY"],

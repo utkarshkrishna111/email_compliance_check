@@ -241,32 +241,68 @@ if ($failed.Count -gt 0) {
 }
 
 # ==============================================================================
-# STEP 4 - Azure OpenAI credentials (interactive)
+# STEP 4 - OpenAI provider + credentials (interactive)
 # ==============================================================================
-Write-Step 4 $TOTAL_STEPS "Configuring Azure OpenAI connection ..."
+Write-Step 4 $TOTAL_STEPS "Configuring OpenAI provider ..."
 Write-Host ""
-Write-Host "        Enter your Azure OpenAI credentials." -ForegroundColor White
+Write-Host "        Which OpenAI provider do you want to use?" -ForegroundColor White
+Write-Host ""
+Write-Host "          [1]  Azure OpenAI  - work / corporate account (default)" -ForegroundColor Yellow
+Write-Host "          [2]  OpenAI        - personal account (api.openai.com)" -ForegroundColor Cyan
+Write-Host ""
+
+$providerChoice = ""
+while ($providerChoice -notin @("1", "2")) {
+    $providerChoice = Read-Host "        Enter choice [1 or 2]"
+    if ([string]::IsNullOrWhiteSpace($providerChoice)) { $providerChoice = "1" }
+    if ($providerChoice -notin @("1", "2")) {
+        Write-Host "        Please enter 1 or 2." -ForegroundColor Red
+        $providerChoice = ""
+    }
+}
+
+Write-Host ""
 Write-Host "        (Press ENTER to keep the placeholder and edit .env later)" -ForegroundColor DarkGray
 Write-Host ""
 
-$defaultEndpoint   = "https://dev-openai-service-02.openai.azure.com"
-$defaultApiKey     = "<YOUR_AZURE_OPENAI_API_KEY>"
-$defaultApiVersion = "2025-01-01-preview"
-$defaultDeployment = "aprbatch1-22520ec1-fb36-4c4c-947b-32f783a023ce"
+if ($providerChoice -eq "2") {
+    # ── Personal OpenAI ──────────────────────────────────────────────────────
+    $OPENAI_PROVIDER = "openai"
 
-$inputEndpoint = Read-Host "        Azure OpenAI Endpoint   [$defaultEndpoint]"
-if ([string]::IsNullOrWhiteSpace($inputEndpoint)) { $inputEndpoint = $defaultEndpoint }
+    $defaultPersonalKey = "<YOUR_OPENAI_API_KEY>"
+    $defaultModel       = "gpt-4o"
 
-$inputApiKey = Read-Host "        Azure OpenAI API Key    [$defaultApiKey]"
-if ([string]::IsNullOrWhiteSpace($inputApiKey)) { $inputApiKey = $defaultApiKey }
+    $inputOpenAIKey = Read-Host "        OpenAI API Key   [$defaultPersonalKey]"
+    if ([string]::IsNullOrWhiteSpace($inputOpenAIKey)) { $inputOpenAIKey = $defaultPersonalKey }
 
-$inputApiVersion = Read-Host "        API Version            [$defaultApiVersion]"
-if ([string]::IsNullOrWhiteSpace($inputApiVersion)) { $inputApiVersion = $defaultApiVersion }
+    $inputModel = Read-Host "        Model name       [$defaultModel]"
+    if ([string]::IsNullOrWhiteSpace($inputModel)) { $inputModel = $defaultModel }
 
-$inputDeployment = Read-Host "        Deployment Name        [$defaultDeployment]"
-if ([string]::IsNullOrWhiteSpace($inputDeployment)) { $inputDeployment = $defaultDeployment }
+    Write-OK "Personal OpenAI credentials captured  (model=$inputModel)."
 
-Write-OK "Azure OpenAI credentials captured."
+} else {
+    # ── Azure OpenAI (default) ───────────────────────────────────────────────
+    $OPENAI_PROVIDER = "azure"
+
+    $defaultEndpoint   = "https://dev-openai-service-02.openai.azure.com"
+    $defaultApiKey     = "<YOUR_AZURE_OPENAI_API_KEY>"
+    $defaultApiVersion = "2025-01-01-preview"
+    $defaultDeployment = "aprbatch1-22520ec1-fb36-4c4c-947b-32f783a023ce"
+
+    $inputEndpoint = Read-Host "        Azure OpenAI Endpoint   [$defaultEndpoint]"
+    if ([string]::IsNullOrWhiteSpace($inputEndpoint)) { $inputEndpoint = $defaultEndpoint }
+
+    $inputApiKey = Read-Host "        Azure OpenAI API Key    [$defaultApiKey]"
+    if ([string]::IsNullOrWhiteSpace($inputApiKey)) { $inputApiKey = $defaultApiKey }
+
+    $inputApiVersion = Read-Host "        API Version            [$defaultApiVersion]"
+    if ([string]::IsNullOrWhiteSpace($inputApiVersion)) { $inputApiVersion = $defaultApiVersion }
+
+    $inputDeployment = Read-Host "        Deployment Name        [$defaultDeployment]"
+    if ([string]::IsNullOrWhiteSpace($inputDeployment)) { $inputDeployment = $defaultDeployment }
+
+    Write-OK "Azure OpenAI credentials captured."
+}
 
 # ==============================================================================
 # STEP 5 - Log mode selection (interactive)
@@ -300,7 +336,30 @@ while ($logChoice -notin @("1", "2")) {
 # ==============================================================================
 Write-Step 6 $TOTAL_STEPS "Writing .env configuration file ..."
 
-$envContent = @"
+if ($OPENAI_PROVIDER -eq "openai") {
+    $envContent = @"
+# OpenAI provider: openai (personal) | azure (work)
+OPENAI_PROVIDER=openai
+
+# Personal OpenAI
+OPENAI_API_KEY=$inputOpenAIKey
+OPENAI_MODEL=$inputModel
+
+# Application defaults
+# Log level used by main.py when --log-level is not passed on the CLI
+# Valid values: DEBUG | INFO | WARNING | ERROR | CRITICAL
+LOG_LEVEL=$LOG_LEVEL
+
+# Folder paths (relative to project root; override if needed)
+EMAIL_DATA_DIR=email_data
+RESULT_DIR=result
+LOG_DIR=logs
+"@
+} else {
+    $envContent = @"
+# OpenAI provider: azure (work) | openai (personal)
+OPENAI_PROVIDER=azure
+
 # Azure OpenAI
 AZURE_OPENAI_ENDPOINT=$inputEndpoint
 AZURE_OPENAI_API_KEY=$inputApiKey
@@ -317,6 +376,7 @@ EMAIL_DATA_DIR=email_data
 RESULT_DIR=result
 LOG_DIR=logs
 "@
+}
 
 $envPath = Join-Path $PSScriptRoot ".env"
 $envContent | Out-File -FilePath $envPath -Encoding utf8
@@ -381,6 +441,7 @@ Write-Host "  |  Open ui/dashboard.html in your browser for the GUI      |" -For
 Write-Host "  +----------------------------------------------------------+" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  Python used        : $pythonExe" -ForegroundColor Magenta
+Write-Host "  OpenAI provider    : $OPENAI_PROVIDER" -ForegroundColor Magenta
 Write-Host "  Log level default  : $LOG_LEVEL" -ForegroundColor Magenta
 Write-Host "  Logs saved to      : logs/" -ForegroundColor Magenta
 Write-Host "  Results saved to   : result/" -ForegroundColor Magenta

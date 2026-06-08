@@ -128,8 +128,10 @@ class ComplianceAgent:
             config = load_config()
         self._system_prompt = _build_system_prompt(config)
         self._llm = self._build_llm()
-        logger.info("ComplianceAgent ready  (deployment=%s)",
-                    os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"))
+        _provider = os.environ.get("OPENAI_PROVIDER", "azure").lower()
+        _model_id = (os.environ.get("OPENAI_MODEL", "gpt-4o") if _provider == "openai"
+                     else os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"))
+        logger.info("ComplianceAgent ready  (provider=%s  model/deployment=%s)", _provider, _model_id)
 
     # ── public ───────────────────────────────────────────────────────────────
 
@@ -178,15 +180,27 @@ class ComplianceAgent:
     # ── private ──────────────────────────────────────────────────────────────
 
     def _build_llm(self):
-        logger.debug("→ _build_llm  endpoint=%s  deployment=%s  api_version=%s",
-                     os.environ.get("AZURE_OPENAI_ENDPOINT", "?"),
-                     os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
-                     os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"))
         try:
-            from langchain_openai import AzureChatOpenAI
+            from langchain_openai import AzureChatOpenAI, ChatOpenAI
         except ImportError:
             raise ImportError("langchain-openai required: pip install langchain-openai")
 
+        provider = os.environ.get("OPENAI_PROVIDER", "azure").lower()
+
+        if provider == "openai":
+            model = os.environ.get("OPENAI_MODEL", "gpt-4o")
+            logger.debug("→ _build_llm  provider=openai  model=%s", model)
+            return ChatOpenAI(
+                api_key=os.environ["OPENAI_API_KEY"],
+                model=model,
+                temperature=0.0,
+                max_tokens=1500,
+            )
+
+        logger.debug("→ _build_llm  provider=azure  endpoint=%s  deployment=%s  api_version=%s",
+                     os.environ.get("AZURE_OPENAI_ENDPOINT", "?"),
+                     os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o"),
+                     os.environ.get("AZURE_OPENAI_API_VERSION", "2024-02-15-preview"))
         return AzureChatOpenAI(
             azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
             api_key=os.environ["AZURE_OPENAI_API_KEY"],
